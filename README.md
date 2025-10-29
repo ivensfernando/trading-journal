@@ -1,3 +1,4 @@
+# trading-journal
 # NexAPI Integration Project
 
 This project demonstrates how to integrate with multiple cryptocurrency exchanges using the [NexAPI](https://github.com/linstohu/nexapi) library. It provides a unified interface for interacting with various exchange APIs for operations like testing connections, fetching account balances, and placing orders.
