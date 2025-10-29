@@ -141,20 +141,7 @@ func MeHandler(logger *logrus.Entry) http.HandlerFunc {
 			return
 		}
 
-		// Return sanitized user info
-		response := struct {
-			ID        uint   `json:"id"`
-			Username  string `json:"username"`
-			LastLogin string `json:"last_login,omitempty"`
-			LastSeen  string `json:"last_seen,omitempty"`
-		}{
-			ID:        user.ID,
-			Username:  user.Username,
-			LastLogin: user.LastLogin.Format("2006-01-02 15:04:05"),
-			LastSeen:  user.LastSeen.Format("2006-01-02 15:04:05"),
-		}
-
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
+		json.NewEncoder(w).Encode(user.ToResponse())
 	}
 }

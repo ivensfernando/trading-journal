@@ -30,6 +30,7 @@ import (
 	"vsC1Y2025V01/src/auth"
 	"vsC1Y2025V01/src/lookup"
 	"vsC1Y2025V01/src/trades"
+	"vsC1Y2025V01/src/users"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/sirupsen/logrus"
@@ -81,6 +82,7 @@ func StartServer(port string, logger *logrus.Entry) {
 		r.Use(auth.RequireAuthMiddleware(logger)) // ✅ <— protect the routes
 
 		r.Get("/me", auth.MeHandler(logger))
+		r.Put("/me", users.UpdateUserHandler(logger))
 		r.Get("/logout", auth.LogoutHandler(logger))
 
 		// CRUD Routes for Trades
