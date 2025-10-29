@@ -9,8 +9,14 @@ import (
 	mexcUtils "github.com/linstohu/nexapi/mexc/spot/utils"
 )
 
+// MarketDataClient é uma interface para o cliente de dados de mercado
+type MarketDataClient interface {
+	Ping(ctx context.Context) error
+	GetOrderbook(ctx context.Context, params mexcTypes.GetOrderbookParams) (*mexcTypes.Orderbook, error)
+}
+
 type MexcConnector struct {
-	marketDataClient *mexcMarketData.SpotMarketDataClient
+	marketDataClient MarketDataClient
 }
 
 func NewMexcConnector(apiKey, apiSecret string) *MexcConnector {
@@ -31,8 +37,7 @@ func NewMexcConnector(apiKey, apiSecret string) *MexcConnector {
 }
 
 func (mc *MexcConnector) TestConnection() error {
-	err := mc.marketDataClient.Ping(context.Background())
-	return err
+	return mc.marketDataClient.Ping(context.Background())
 }
 
 func (mc *MexcConnector) GetOrderBook(symbol string, limit int) (*mexcTypes.Orderbook, error) {
@@ -42,10 +47,9 @@ func (mc *MexcConnector) GetOrderBook(symbol string, limit int) (*mexcTypes.Orde
 	}
 
 	return mc.marketDataClient.GetOrderbook(context.Background(), params)
-
 }
 
 func (mc *MexcConnector) ExecuteOrder(orderType, symbol string, quantity, price float64) (string, error) {
-	// Placeholder for order execution implementation
+	// Placeholder para implementação da execução de ordens
 	return "", nil
 }

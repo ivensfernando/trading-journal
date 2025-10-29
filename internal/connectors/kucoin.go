@@ -1,48 +1,50 @@
 package connectors
 
-//import (
-//	"context"
-//	"github.com/Kucoin/kucoin-go-sdk"
-//)
-//
-//package connectors
-//
-//import (
-//"context"
-//"github.com/Kucoin/kucoin-go-sdk"
-//)
-//
-//type KucoinConnector struct {
-//	client *kucoin.ApiService
-//}
-//
-//func NewKucoinConnector(apiKey, apiSecret, apiPassphrase string) *KucoinConnector {
-//	client := kucoin.NewApiService(
-//		kucoin.WithApiKey(apiKey, apiSecret, apiPassphrase),
-//	)
-//	return &KucoinConnector{client: client}
-//}
-//
-//func (kc *KucoinConnector) TestConnection() error {
-//	_, err := kc.client.ServerTime(context.Background())
-//	return err
-//}
-//
-//func (kc *KucoinConnector) GetAccountBalances() (map[string]float64, error) {
-//	resp, err := kc.client.AccountList(context.Background(), "trade")
+import (
+	"context"
+	kucoin "github.com/Kucoin/kucoin-go-sdk"
+)
+
+type KucoinConnector struct {
+	apiService *kucoin.ApiService
+}
+
+func NewKucoinConnector(apiKey, apiSecret, apiPassphrase string) *KucoinConnector {
+	apiService := kucoin.NewApiService(
+		kucoin.ApiKeyOption(apiKey),
+		kucoin.ApiSecretOption(apiSecret),
+		kucoin.ApiPassPhraseOption(apiPassphrase),
+	)
+
+	return &KucoinConnector{apiService: apiService}
+}
+
+func (kc *KucoinConnector) TestConnection() error {
+	ctx := context.Background()
+	_, err := kc.apiService.ServerTime(ctx)
+	return err
+}
+
+//func (kc *KucoinConnector) GetOrderBook(symbol string, limit int) (*kucoin.OrderBookModel, error) {
+//	ctx := context.Background()
+//	params := map[string]string{
+//		"symbol": symbol,
+//		"limit":  fmt.Sprintf("%d", limit),
+//	}
+//	rsp, err := kc.apiService.MarketOrderBook(ctx, params)
 //	if err != nil {
 //		return nil, err
 //	}
 //
-//	// Parse response and convert to map
-//	balances := make(map[string]float64)
-//	for _, account := range resp {
-//		balances[account.Currency] = account.Balance
+//	var orderBook kucoin.OrderBookModel
+//	if err := rsp.ReadData(&orderBook); err != nil {
+//		return nil, err
 //	}
-//	return balances, nil
-//}
 //
-//func (kc *KucoinConnector) ExecuteOrder(orderType string, symbol string, quantity float64, price float64) (string, error) {
-//	// Implementation for executing an order on KuCoin
-//	return "", nil
+//	return &orderBook, nil
 //}
+
+func (kc *KucoinConnector) ExecuteOrder(orderType, symbol string, quantity, price float64) (string, error) {
+	// Implementação para execução de ordens
+	return "", nil
+}

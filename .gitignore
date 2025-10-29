@@ -1,0 +1,48 @@
+# ------------------------
+# Go build & dependency files
+# ------------------------
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Go modules
+vendor/
+bin/
+dist/
+coverage.out
+
+# Go workspace files
+go.work
+go.work.sum
+
+# ------------------------
+# JetBrains IDE files
+# ------------------------
+.idea/
+*.iml
+
+# ------------------------
+# OS generated files
+# ------------------------
+.DS_Store
+Thumbs.db
+
+# ------------------------
+# Logs & temp files
+# ------------------------
+*.log
+*.tmp
+*.swp
+
+# ------------------------
+# Environment & configuration
+# ------------------------
+.env
+.env.local
+.env.*
+!.env.example
