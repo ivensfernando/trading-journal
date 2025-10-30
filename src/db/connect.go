@@ -47,7 +47,7 @@ func InitDB(logger *logrus.Entry) {
 	sqlDB.SetMaxIdleConns(10)
 	sqlDB.SetConnMaxLifetime(1 * time.Hour)
 
-	if err := db.AutoMigrate(&model.Alert{}, &model.User{}, &model.Trade{}, &model.Exchange{}, &model.PairsCoins{}); err != nil {
+	if err := db.AutoMigrate(&model.Alert{}, &model.User{}, &model.Trade{}, &model.Exchange{}, &model.PairsCoins{}, &model.UserExchange{}); err != nil {
 		logger.WithError(err).Fatal("Failed to migrate database")
 	}
 

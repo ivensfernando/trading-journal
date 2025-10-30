@@ -2,9 +2,9 @@ package auth
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"time"
-	"vsC1Y2025V01/src/db"
 	"vsC1Y2025V01/src/model"
 
 	"github.com/sirupsen/logrus"
@@ -37,7 +37,7 @@ func RegisterHandler(logger *logrus.Entry) http.HandlerFunc {
 			UpdatedAt: time.Now(),
 		}
 
-		if err := db.DB.Create(&user).Error; err != nil {
+		if err := getUserRepository().Create(&user); err != nil {
 			logger.WithError(err).Error("User registration failed")
 			http.Error(w, "Registration error", http.StatusInternalServerError)
 			return
@@ -61,8 +61,15 @@ func LoginHandler(logger *logrus.Entry) http.HandlerFunc {
 
 		logger.WithField("username", payload.Username).Info("Looking up user")
 
-		var user model.User
-		if err := db.DB.Where("username = ?", payload.Username).First(&user).Error; err != nil {
+		user, err := getUserRepository().FindByUsername(payload.Username)
+		if err != nil {
+			if errors.Is(err, ErrUserNotFound) {
+				logger.WithError(err).Warn("User not found or DB error")
+				http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+				return
+			}
+
+			logger.WithError(err).Error("Failed to lookup user for login")
 			logger.WithError(err).Warn("User not found or DB error")
 			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 			return
@@ -79,7 +86,7 @@ func LoginHandler(logger *logrus.Entry) http.HandlerFunc {
 		// Update login times
 		user.LastLogin = time.Now()
 		user.LastSeen = time.Now()
-		if err := db.DB.Save(&user).Error; err != nil {
+		if err := getUserRepository().Update(user); err != nil {
 			logger.WithError(err).Error("Failed to update last login timestamps")
 		}
 
