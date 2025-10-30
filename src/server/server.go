@@ -30,6 +30,7 @@ import (
 	"vsC1Y2025V01/src/auth"
 	"vsC1Y2025V01/src/lookup"
 	"vsC1Y2025V01/src/trades"
+	"vsC1Y2025V01/src/userexchanges"
 	"vsC1Y2025V01/src/users"
 
 	"github.com/go-chi/chi/v5"
@@ -92,6 +93,12 @@ func StartServer(port string, logger *logrus.Entry) {
 		r.Put("/trades/{id}", trades.UpdateTradeHandler(logger))
 		r.Delete("/trades", trades.DeleteManyTradesHandler(logger))
 		r.Delete("/trades/{id}", trades.DeleteTradeHandler(logger))
+
+		r.Route("/user-exchanges", func(r chi.Router) {
+			r.Post("/", userexchanges.UpsertUserExchangeHandler(logger))
+			r.Get("/forms", userexchanges.ListFormUserExchangesHandler(logger))
+			r.Delete("/{exchangeID}", userexchanges.DeleteUserExchangeHandler(logger))
+		})
 
 	})
 	// Graceful server

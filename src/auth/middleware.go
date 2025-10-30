@@ -2,13 +2,13 @@ package auth
 
 import (
 	"context"
-	"github.com/go-chi/cors"
-	"github.com/sirupsen/logrus"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
-	"vsC1Y2025V01/src/db"
-	"vsC1Y2025V01/src/model"
+
+	"github.com/go-chi/cors"
+	"github.com/sirupsen/logrus"
 )
 
 //type contextKey string
@@ -38,9 +38,13 @@ func AuthMiddleware(logger *logrus.Entry) func(http.Handler) http.Handler {
 			}
 			logger.WithField("user_id", userID).Debug("Token parsed successfully")
 
-			var user model.User
-			if err := db.DB.First(&user, userID).Error; err != nil {
-				logger.WithError(err).Warn("User not found in database")
+			user, err := getUserRepository().FindByID(userID)
+			if err != nil {
+				if errors.Is(err, ErrUserNotFound) {
+					logger.WithError(err).Warn("User not found in database")
+				} else {
+					logger.WithError(err).Error("Failed to load user for auth middleware")
+				}
 				http.Error(w, "User not found", http.StatusUnauthorized)
 				return
 			}
@@ -48,13 +52,13 @@ func AuthMiddleware(logger *logrus.Entry) func(http.Handler) http.Handler {
 
 			// Update last seen timestamp
 			user.LastSeen = time.Now()
-			if err := db.DB.Save(&user).Error; err != nil {
+			if err := getUserRepository().Update(user); err != nil {
 				logger.WithError(err).Error("Failed to update last seen")
 			} else {
 				logger.WithField("username", user.Username).Debug("Last seen updated")
 			}
 
-			ctx := context.WithValue(r.Context(), UserKey, &user)
+			ctx := context.WithValue(r.Context(), UserKey, user)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -83,17 +87,23 @@ func RequireAuthMiddleware(logger *logrus.Entry) func(http.Handler) http.Handler
 				return
 			}
 
-			var user model.User
-			if err := db.DB.First(&user, userID).Error; err != nil {
-				logger.WithError(err).Warn("User not found")
+			user, err := getUserRepository().FindByID(userID)
+			if err != nil {
+				if errors.Is(err, ErrUserNotFound) {
+					logger.WithError(err).Warn("User not found")
+				} else {
+					logger.WithError(err).Error("Failed to load user for cookie auth")
+				}
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
 			}
 
 			user.LastSeen = time.Now()
-			//db.DB.Save(&user)
+			if err := getUserRepository().Update(user); err != nil {
+				logger.WithError(err).Error("Failed to persist last seen timestamp")
+			}
 
-			ctx := context.WithValue(r.Context(), UserKey, &user)
+			ctx := context.WithValue(r.Context(), UserKey, user)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
