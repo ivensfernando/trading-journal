@@ -2,10 +2,13 @@ package userexchanges
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -423,5 +426,161 @@ func TestUserExchangeLifecycle(t *testing.T) {
 	}
 	if len(listResp) != 0 {
 		t.Fatalf("expected no exchanges after delete, got %d", len(listResp))
+	}
+}
+
+type stubMexcConnector struct {
+	err error
+}
+
+func (s *stubMexcConnector) TestConnection() error {
+	return s.err
+}
+
+func TestTestMexcConnectionHandler_Success(t *testing.T) {
+	logger := logrus.NewEntry(logrus.StandardLogger())
+
+	exchangeStore := newInMemoryUserExchangeStore()
+	SetUserExchangeStore(exchangeStore)
+	t.Cleanup(func() { SetUserExchangeStore(nil) })
+
+	mexcExchange := &model.Exchange{Name: "MEXC"}
+	if err := exchangeStore.CreateExchange(mexcExchange); err != nil {
+		t.Fatalf("failed to seed mexc exchange: %v", err)
+	}
+
+	user := &model.User{ID: 42, Username: "bob"}
+
+	ue := &model.UserExchange{
+		UserID:        user.ID,
+		ExchangeID:    mexcExchange.ID,
+		APIKeyHash:    "mexc-key",
+		APISecretHash: "mexc-secret",
+	}
+	if err := exchangeStore.SaveUserExchange(ue); err != nil {
+		t.Fatalf("failed to seed user exchange: %v", err)
+	}
+
+	origFactory := mexcConnectorFactory
+	defer func() { mexcConnectorFactory = origFactory }()
+
+	var receivedKey, receivedSecret string
+	mexcConnectorFactory = func(apiKey, apiSecret string) mexcConnector {
+		receivedKey = apiKey
+		receivedSecret = apiSecret
+		return &stubMexcConnector{}
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/user-exchanges/"+strconv.Itoa(int(mexcExchange.ID))+"/test", nil)
+	ctx := context.WithValue(req.Context(), auth.UserKey, user)
+	req = req.WithContext(ctx)
+
+	rr := httptest.NewRecorder()
+	handler := TestMexcConnectionHandler(logger)
+	handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", rr.Code)
+	}
+
+	if receivedKey != "mexc-key" {
+		t.Fatalf("expected connector to receive API key, got %q", receivedKey)
+	}
+	if receivedSecret != "mexc-secret" {
+		t.Fatalf("expected connector to receive API secret, got %q", receivedSecret)
+	}
+
+	var resp map[string]string
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp["status"] != "ok" {
+		t.Fatalf("expected status ok, got %q", resp["status"])
+	}
+}
+
+func TestTestMexcConnectionHandler_Failure(t *testing.T) {
+	logger := logrus.NewEntry(logrus.StandardLogger())
+
+	exchangeStore := newInMemoryUserExchangeStore()
+	SetUserExchangeStore(exchangeStore)
+	t.Cleanup(func() { SetUserExchangeStore(nil) })
+
+	mexcExchange := &model.Exchange{Name: "MEXC"}
+	if err := exchangeStore.CreateExchange(mexcExchange); err != nil {
+		t.Fatalf("failed to seed mexc exchange: %v", err)
+	}
+
+	user := &model.User{ID: 7, Username: "alice"}
+	ue := &model.UserExchange{
+		UserID:        user.ID,
+		ExchangeID:    mexcExchange.ID,
+		APIKeyHash:    "mexc-key",
+		APISecretHash: "mexc-secret",
+	}
+	if err := exchangeStore.SaveUserExchange(ue); err != nil {
+		t.Fatalf("failed to seed user exchange: %v", err)
+	}
+
+	origFactory := mexcConnectorFactory
+	defer func() { mexcConnectorFactory = origFactory }()
+
+	stubErr := errors.New("connection failed")
+	mexcConnectorFactory = func(apiKey, apiSecret string) mexcConnector {
+		return &stubMexcConnector{err: stubErr}
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/user-exchanges/"+strconv.Itoa(int(mexcExchange.ID))+"/test", nil)
+	ctx := context.WithValue(req.Context(), auth.UserKey, user)
+	req = req.WithContext(ctx)
+
+	rr := httptest.NewRecorder()
+	handler := TestMexcConnectionHandler(logger)
+	handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusBadGateway {
+		t.Fatalf("expected status 502, got %d", rr.Code)
+	}
+	if !strings.Contains(rr.Body.String(), "Failed to connect to MEXC") {
+		t.Fatalf("expected failure message, got %q", rr.Body.String())
+	}
+}
+
+func TestTestMexcConnectionHandler_NotMexc(t *testing.T) {
+	logger := logrus.NewEntry(logrus.StandardLogger())
+
+	exchangeStore := newInMemoryUserExchangeStore()
+	SetUserExchangeStore(exchangeStore)
+	t.Cleanup(func() { SetUserExchangeStore(nil) })
+
+	otherExchange := &model.Exchange{Name: "Binance"}
+	if err := exchangeStore.CreateExchange(otherExchange); err != nil {
+		t.Fatalf("failed to seed exchange: %v", err)
+	}
+
+	user := &model.User{ID: 11}
+	ue := &model.UserExchange{
+		UserID:        user.ID,
+		ExchangeID:    otherExchange.ID,
+		APIKeyHash:    "binance-key",
+		APISecretHash: "binance-secret",
+	}
+	if err := exchangeStore.SaveUserExchange(ue); err != nil {
+		t.Fatalf("failed to seed user exchange: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/user-exchanges/"+strconv.Itoa(int(otherExchange.ID))+"/test", nil)
+	ctx := context.WithValue(req.Context(), auth.UserKey, user)
+	req = req.WithContext(ctx)
+
+	rr := httptest.NewRecorder()
+	handler := TestMexcConnectionHandler(logger)
+	handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d", rr.Code)
+	}
+	if !strings.Contains(rr.Body.String(), "exchange is not MEXC") {
+		t.Fatalf("expected not MEXC message, got %q", rr.Body.String())
 	}
 }

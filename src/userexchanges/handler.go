@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"vsC1Y2025V01/internal/connectors"
 	"vsC1Y2025V01/src/auth"
 	"vsC1Y2025V01/src/model"
 
@@ -14,6 +15,14 @@ import (
 	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/bcrypt"
 )
+
+type mexcConnector interface {
+	TestConnection() error
+}
+
+var mexcConnectorFactory = func(apiKey, apiSecret string) mexcConnector {
+	return connectors.NewMexcConnector(apiKey, apiSecret)
+}
 
 func UpsertUserExchangeHandler(logger *logrus.Entry) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -177,5 +186,83 @@ func DeleteUserExchangeHandler(logger *logrus.Entry) http.HandlerFunc {
 		}
 
 		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+func TestMexcConnectionHandler(logger *logrus.Entry) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user, ok := auth.GetUserFromContext(r.Context())
+		if !ok || user == nil {
+			logger.Warn("user not found in context while testing MEXC connection")
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		exchangeIDStr := chi.URLParam(r, "exchangeID")
+		if exchangeIDStr == "" {
+			http.Error(w, "exchangeID is required", http.StatusBadRequest)
+			return
+		}
+
+		exchangeID, err := strconv.ParseUint(exchangeIDStr, 10, 64)
+		if err != nil {
+			http.Error(w, "invalid exchangeID", http.StatusBadRequest)
+			return
+		}
+
+		userExchange, err := getUserExchangeStore().FindUserExchange(user.ID, uint(exchangeID))
+		if err != nil {
+			if errors.Is(err, ErrUserExchangeNotFound) {
+				http.Error(w, "user exchange not found", http.StatusNotFound)
+				return
+			}
+
+			logger.WithError(err).Error("failed to fetch user exchange for MEXC connection test")
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		exchange := userExchange.Exchange
+		if exchange == nil {
+			exchange, err = getUserExchangeStore().GetExchangeByID(uint(exchangeID))
+			if err != nil {
+				if errors.Is(err, ErrExchangeNotFound) {
+					http.Error(w, "exchange not found", http.StatusNotFound)
+					return
+				}
+
+				logger.WithError(err).Error("failed to load exchange during MEXC connection test")
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
+		}
+
+		if exchange == nil || !strings.EqualFold(exchange.Name, "mexc") {
+			http.Error(w, "exchange is not MEXC", http.StatusBadRequest)
+			return
+		}
+
+		if userExchange.APIKeyHash == "" || userExchange.APISecretHash == "" {
+			http.Error(w, "missing API credentials for MEXC", http.StatusBadRequest)
+			return
+		}
+
+		connector := mexcConnectorFactory(userExchange.APIKeyHash, userExchange.APISecretHash)
+		if connector == nil {
+			logger.Error("failed to build MEXC connector")
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		if err := connector.TestConnection(); err != nil {
+			logger.WithError(err).Warn("MEXC connection test failed")
+			http.Error(w, "Failed to connect to MEXC", http.StatusBadGateway)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(map[string]string{"status": "ok"}); err != nil {
+			logger.WithError(err).Error("failed to encode MEXC test response")
+		}
 	}
 }

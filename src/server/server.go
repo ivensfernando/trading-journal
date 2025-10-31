@@ -97,6 +97,7 @@ func StartServer(port string, logger *logrus.Entry) {
 		r.Route("/user-exchanges", func(r chi.Router) {
 			r.Post("/", userexchanges.UpsertUserExchangeHandler(logger))
 			r.Get("/forms", userexchanges.ListFormUserExchangesHandler(logger))
+			r.Post("/{exchangeID}/test", userexchanges.TestMexcConnectionHandler(logger))
 			r.Delete("/{exchangeID}", userexchanges.DeleteUserExchangeHandler(logger))
 		})
 
