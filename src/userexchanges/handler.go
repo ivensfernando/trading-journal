@@ -24,6 +24,21 @@ var mexcConnectorFactory = func(apiKey, apiSecret string) mexcConnector {
 	return connectors.NewMexcConnector(apiKey, apiSecret)
 }
 
+var newMexcConnector = func(apiKey, apiSecret string) mexcConnector {
+	return connectors.NewMexcConnector(apiKey, apiSecret)
+}
+
+type testConnectionPayload struct {
+	APIKey        string `json:"apiKey"`
+	APISecret     string `json:"apiSecret"`
+	APIPassphrase string `json:"apiPassphrase"`
+}
+
+type testConnectionResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+}
+
 func UpsertUserExchangeHandler(logger *logrus.Entry) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user, ok := auth.GetUserFromContext(r.Context())

@@ -584,3 +584,261 @@ func TestTestMexcConnectionHandler_NotMexc(t *testing.T) {
 		t.Fatalf("expected not MEXC message, got %q", rr.Body.String())
 	}
 }
+
+type mockMexcConnector struct {
+	err    error
+	called int
+}
+
+func (m *mockMexcConnector) TestConnection() error {
+	m.called++
+	return m.err
+}
+
+func TestTestMexcConnectionHandlerSuccess(t *testing.T) {
+	logger := logrus.NewEntry(logrus.StandardLogger())
+
+	exchangeStore := newInMemoryUserExchangeStore()
+	SetUserExchangeStore(exchangeStore)
+	t.Cleanup(func() {
+		SetUserExchangeStore(nil)
+	})
+
+	exchange := &model.Exchange{ID: 1, Name: "Mexc"}
+	if err := exchangeStore.CreateExchange(exchange); err != nil {
+		t.Fatalf("failed to create exchange: %v", err)
+	}
+
+	apiKey := "test-api-key"
+	apiSecret := "test-api-secret"
+
+	apiKeyHash, _ := bcrypt.GenerateFromPassword([]byte(apiKey), bcrypt.DefaultCost)
+	apiSecretHash, _ := bcrypt.GenerateFromPassword([]byte(apiSecret), bcrypt.DefaultCost)
+
+	userExchange := &model.UserExchange{
+		UserID:        42,
+		ExchangeID:    exchange.ID,
+		APIKeyHash:    string(apiKeyHash),
+		APISecretHash: string(apiSecretHash),
+		Exchange:      exchange,
+	}
+
+	if err := exchangeStore.SaveUserExchange(userExchange); err != nil {
+		t.Fatalf("failed to save user exchange: %v", err)
+	}
+
+	mockConnector := &mockMexcConnector{}
+	originalFactory := newMexcConnector
+	var receivedKey, receivedSecret string
+	newMexcConnector = func(key, secret string) mexcConnector {
+		receivedKey = key
+		receivedSecret = secret
+		return mockConnector
+	}
+	t.Cleanup(func() {
+		newMexcConnector = originalFactory
+	})
+
+	payload := map[string]string{
+		"apiKey":    apiKey,
+		"apiSecret": apiSecret,
+	}
+
+	body, _ := json.Marshal(payload)
+	req := httptest.NewRequest(http.MethodPost, "/user-exchanges/1/test", bytes.NewReader(body))
+	routeCtx := chi.NewRouteContext()
+	routeCtx.URLParams.Add("exchangeID", strconv.Itoa(int(exchange.ID)))
+	ctx := context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx)
+	ctx = context.WithValue(ctx, auth.UserKey, &model.User{ID: userExchange.UserID})
+	req = req.WithContext(ctx)
+	rec := httptest.NewRecorder()
+
+	handler := TestMexcConnectionHandler(logger)
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var response testConnectionResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if !response.Success {
+		t.Fatalf("expected success response")
+	}
+
+	if mockConnector.called != 1 {
+		t.Fatalf("expected connector to be called once, got %d", mockConnector.called)
+	}
+
+	if receivedKey != apiKey || receivedSecret != apiSecret {
+		t.Fatalf("expected connector to receive provided credentials")
+	}
+}
+
+func TestTestMexcConnectionHandlerCredentialMismatch(t *testing.T) {
+	logger := logrus.NewEntry(logrus.StandardLogger())
+
+	exchangeStore := newInMemoryUserExchangeStore()
+	SetUserExchangeStore(exchangeStore)
+	t.Cleanup(func() {
+		SetUserExchangeStore(nil)
+	})
+
+	exchange := &model.Exchange{ID: 1, Name: "Mexc"}
+	if err := exchangeStore.CreateExchange(exchange); err != nil {
+		t.Fatalf("failed to create exchange: %v", err)
+	}
+
+	apiKeyHash, _ := bcrypt.GenerateFromPassword([]byte("stored-key"), bcrypt.DefaultCost)
+	apiSecretHash, _ := bcrypt.GenerateFromPassword([]byte("stored-secret"), bcrypt.DefaultCost)
+
+	userExchange := &model.UserExchange{
+		UserID:        99,
+		ExchangeID:    exchange.ID,
+		APIKeyHash:    string(apiKeyHash),
+		APISecretHash: string(apiSecretHash),
+		Exchange:      exchange,
+	}
+
+	if err := exchangeStore.SaveUserExchange(userExchange); err != nil {
+		t.Fatalf("failed to save user exchange: %v", err)
+	}
+
+	payload := map[string]string{
+		"apiKey":    "wrong-key",
+		"apiSecret": "stored-secret",
+	}
+
+	body, _ := json.Marshal(payload)
+	req := httptest.NewRequest(http.MethodPost, "/user-exchanges/1/test", bytes.NewReader(body))
+	routeCtx := chi.NewRouteContext()
+	routeCtx.URLParams.Add("exchangeID", strconv.Itoa(int(exchange.ID)))
+	ctx := context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx)
+	ctx = context.WithValue(ctx, auth.UserKey, &model.User{ID: userExchange.UserID})
+	req = req.WithContext(ctx)
+	rec := httptest.NewRecorder()
+
+	handler := TestMexcConnectionHandler(logger)
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400 for credential mismatch, got %d", rec.Code)
+	}
+}
+
+func TestTestMexcConnectionHandlerUnsupportedExchange(t *testing.T) {
+	logger := logrus.NewEntry(logrus.StandardLogger())
+
+	exchangeStore := newInMemoryUserExchangeStore()
+	SetUserExchangeStore(exchangeStore)
+	t.Cleanup(func() {
+		SetUserExchangeStore(nil)
+	})
+
+	exchange := &model.Exchange{ID: 1, Name: "Kucoin"}
+	if err := exchangeStore.CreateExchange(exchange); err != nil {
+		t.Fatalf("failed to create exchange: %v", err)
+	}
+
+	apiKeyHash, _ := bcrypt.GenerateFromPassword([]byte("stored-key"), bcrypt.DefaultCost)
+	apiSecretHash, _ := bcrypt.GenerateFromPassword([]byte("stored-secret"), bcrypt.DefaultCost)
+
+	userExchange := &model.UserExchange{
+		UserID:        77,
+		ExchangeID:    exchange.ID,
+		APIKeyHash:    string(apiKeyHash),
+		APISecretHash: string(apiSecretHash),
+		Exchange:      exchange,
+	}
+
+	if err := exchangeStore.SaveUserExchange(userExchange); err != nil {
+		t.Fatalf("failed to save user exchange: %v", err)
+	}
+
+	payload := map[string]string{
+		"apiKey":    "stored-key",
+		"apiSecret": "stored-secret",
+	}
+
+	body, _ := json.Marshal(payload)
+	req := httptest.NewRequest(http.MethodPost, "/user-exchanges/1/test", bytes.NewReader(body))
+	routeCtx := chi.NewRouteContext()
+	routeCtx.URLParams.Add("exchangeID", strconv.Itoa(int(exchange.ID)))
+	ctx := context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx)
+	ctx = context.WithValue(ctx, auth.UserKey, &model.User{ID: userExchange.UserID})
+	req = req.WithContext(ctx)
+	rec := httptest.NewRecorder()
+
+	handler := TestMexcConnectionHandler(logger)
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400 for unsupported exchange, got %d", rec.Code)
+	}
+}
+
+func TestTestMexcConnectionHandlerConnectorFailure(t *testing.T) {
+	logger := logrus.NewEntry(logrus.StandardLogger())
+
+	exchangeStore := newInMemoryUserExchangeStore()
+	SetUserExchangeStore(exchangeStore)
+	t.Cleanup(func() {
+		SetUserExchangeStore(nil)
+	})
+
+	exchange := &model.Exchange{ID: 1, Name: "Mexc"}
+	if err := exchangeStore.CreateExchange(exchange); err != nil {
+		t.Fatalf("failed to create exchange: %v", err)
+	}
+
+	apiKey := "test-api-key"
+	apiSecret := "test-api-secret"
+
+	apiKeyHash, _ := bcrypt.GenerateFromPassword([]byte(apiKey), bcrypt.DefaultCost)
+	apiSecretHash, _ := bcrypt.GenerateFromPassword([]byte(apiSecret), bcrypt.DefaultCost)
+
+	userExchange := &model.UserExchange{
+		UserID:        55,
+		ExchangeID:    exchange.ID,
+		APIKeyHash:    string(apiKeyHash),
+		APISecretHash: string(apiSecretHash),
+		Exchange:      exchange,
+	}
+
+	if err := exchangeStore.SaveUserExchange(userExchange); err != nil {
+		t.Fatalf("failed to save user exchange: %v", err)
+	}
+
+	mockConnector := &mockMexcConnector{err: errors.New("ping failed")}
+	originalFactory := newMexcConnector
+	newMexcConnector = func(key, secret string) mexcConnector {
+		return mockConnector
+	}
+	t.Cleanup(func() {
+		newMexcConnector = originalFactory
+	})
+
+	payload := map[string]string{
+		"apiKey":    apiKey,
+		"apiSecret": apiSecret,
+	}
+
+	body, _ := json.Marshal(payload)
+	req := httptest.NewRequest(http.MethodPost, "/user-exchanges/1/test", bytes.NewReader(body))
+	routeCtx := chi.NewRouteContext()
+	routeCtx.URLParams.Add("exchangeID", strconv.Itoa(int(exchange.ID)))
+	ctx := context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx)
+	ctx = context.WithValue(ctx, auth.UserKey, &model.User{ID: userExchange.UserID})
+	req = req.WithContext(ctx)
+	rec := httptest.NewRecorder()
+
+	handler := TestMexcConnectionHandler(logger)
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("expected status 502 when connector fails, got %d", rec.Code)
+	}
+}

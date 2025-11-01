@@ -32,7 +32,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to fetch server time: %v", err)
 	}
-	fmt.Printf("Connected to KuCoin. Server time: %d\n", serverTime)
+	fmt.Printf("Connected to KuCoin. Server time: %v\n", serverTime)
 	//
 	//// Fetch account balances
 	//fetchAccountBalances(client)
