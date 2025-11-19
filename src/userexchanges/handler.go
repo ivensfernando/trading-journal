@@ -10,10 +10,10 @@ import (
 	"vsC1Y2025V01/internal/connectors"
 	"vsC1Y2025V01/src/auth"
 	"vsC1Y2025V01/src/model"
+	"vsC1Y2025V01/src/security"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/crypto/bcrypt"
 )
 
 type mexcConnector interface {
@@ -93,33 +93,33 @@ func UpsertUserExchangeHandler(logger *logrus.Entry) http.HandlerFunc {
 		}
 
 		if payload.APIKey != "" {
-			hash, err := bcrypt.GenerateFromPassword([]byte(payload.APIKey), bcrypt.DefaultCost)
+			cipherText, err := security.EncryptString(payload.APIKey)
 			if err != nil {
-				logger.WithError(err).Error("failed to hash api key")
+				logger.WithError(err).Error("failed to encrypt api key")
 				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 				return
 			}
-			userExchange.APIKeyHash = string(hash)
+			userExchange.APIKeyHash = cipherText
 		}
 
 		if payload.APISecret != "" {
-			hash, err := bcrypt.GenerateFromPassword([]byte(payload.APISecret), bcrypt.DefaultCost)
+			cipherText, err := security.EncryptString(payload.APISecret)
 			if err != nil {
-				logger.WithError(err).Error("failed to hash api secret")
+				logger.WithError(err).Error("failed to encrypt api secret")
 				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 				return
 			}
-			userExchange.APISecretHash = string(hash)
+			userExchange.APISecretHash = cipherText
 		}
 
 		if payload.APIPassphrase != "" {
-			hash, err := bcrypt.GenerateFromPassword([]byte(payload.APIPassphrase), bcrypt.DefaultCost)
+			cipherText, err := security.EncryptString(payload.APIPassphrase)
 			if err != nil {
-				logger.WithError(err).Error("failed to hash api passphrase")
+				logger.WithError(err).Error("failed to encrypt api passphrase")
 				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 				return
 			}
-			userExchange.APIPassphraseHash = string(hash)
+			userExchange.APIPassphraseHash = cipherText
 		}
 
 		userExchange.ShowInForms = payload.ShowInForms
@@ -262,7 +262,21 @@ func TestMexcConnectionHandler(logger *logrus.Entry) http.HandlerFunc {
 			return
 		}
 
-		connector := mexcConnectorFactory(userExchange.APIKeyHash, userExchange.APISecretHash)
+		apiKey, err := security.DecryptString(userExchange.APIKeyHash)
+		if err != nil {
+			logger.WithError(err).Error("failed to decrypt api key")
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		apiSecret, err := security.DecryptString(userExchange.APISecretHash)
+		if err != nil {
+			logger.WithError(err).Error("failed to decrypt api secret")
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		connector := mexcConnectorFactory(apiKey, apiSecret)
 		if connector == nil {
 			logger.Error("failed to build MEXC connector")
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)

@@ -3,10 +3,12 @@ package userexchanges
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -15,16 +17,38 @@ import (
 
 	"vsC1Y2025V01/src/auth"
 	"vsC1Y2025V01/src/model"
+	"vsC1Y2025V01/src/security"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/crypto/bcrypt"
 )
 
 type inMemoryUserRepository struct {
 	mu     sync.Mutex
 	nextID uint
 	users  map[uint]*model.User
+}
+
+const testEncryptionKey = "0123456789abcdef0123456789abcdef"
+
+func setEncryptionKeyForTest(t *testing.T) {
+	t.Helper()
+
+	previous := os.Getenv("EXCHANGE_CREDENTIALS_KEY")
+	encoded := base64.StdEncoding.EncodeToString([]byte(testEncryptionKey))
+	if err := os.Setenv("EXCHANGE_CREDENTIALS_KEY", encoded); err != nil {
+		t.Fatalf("failed to set encryption key env: %v", err)
+	}
+
+	security.ResetEncryptionKeyForTests()
+	t.Cleanup(func() {
+		if previous == "" {
+			_ = os.Unsetenv("EXCHANGE_CREDENTIALS_KEY")
+		} else {
+			_ = os.Setenv("EXCHANGE_CREDENTIALS_KEY", previous)
+		}
+		security.ResetEncryptionKeyForTests()
+	})
 }
 
 func newInMemoryUserRepository() *inMemoryUserRepository {
@@ -226,6 +250,8 @@ func (s *inMemoryUserExchangeStore) DeleteUserExchange(userID, exchangeID uint) 
 }
 
 func TestUserExchangeLifecycle(t *testing.T) {
+	setEncryptionKeyForTest(t)
+
 	logger := logrus.NewEntry(logrus.StandardLogger())
 
 	userRepo := newInMemoryUserRepository()
@@ -326,17 +352,31 @@ func TestUserExchangeLifecycle(t *testing.T) {
 		t.Fatalf("failed to load stored user exchange: %v", err)
 	}
 
-	if err := bcrypt.CompareHashAndPassword([]byte(stored.APIKeyHash), []byte("initial-api-key")); err != nil {
-		t.Fatalf("expected api key to be hashed correctly: %v", err)
+	decryptedKey, err := security.DecryptString(stored.APIKeyHash)
+	if err != nil {
+		t.Fatalf("failed to decrypt stored api key: %v", err)
 	}
-	if err := bcrypt.CompareHashAndPassword([]byte(stored.APISecretHash), []byte("initial-api-secret")); err != nil {
-		t.Fatalf("expected api secret to be hashed correctly: %v", err)
-	}
-	if err := bcrypt.CompareHashAndPassword([]byte(stored.APIPassphraseHash), []byte("initial-api-passphrase")); err != nil {
-		t.Fatalf("expected api passphrase to be hashed correctly: %v", err)
+	if decryptedKey != "initial-api-key" {
+		t.Fatalf("expected decrypted api key to match, got %q", decryptedKey)
 	}
 
-	originalSecretHash := stored.APISecretHash
+	decryptedSecret, err := security.DecryptString(stored.APISecretHash)
+	if err != nil {
+		t.Fatalf("failed to decrypt stored api secret: %v", err)
+	}
+	if decryptedSecret != "initial-api-secret" {
+		t.Fatalf("expected decrypted api secret to match, got %q", decryptedSecret)
+	}
+
+	decryptedPassphrase, err := security.DecryptString(stored.APIPassphraseHash)
+	if err != nil {
+		t.Fatalf("failed to decrypt stored api passphrase: %v", err)
+	}
+	if decryptedPassphrase != "initial-api-passphrase" {
+		t.Fatalf("expected decrypted api passphrase to match, got %q", decryptedPassphrase)
+	}
+
+	originalSecretCipher := stored.APISecretHash
 
 	listReq := httptest.NewRequest(http.MethodGet, "/user-exchanges/forms", nil)
 	listReq.AddCookie(tokenCookie)
@@ -383,11 +423,15 @@ func TestUserExchangeLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to load stored user exchange after update: %v", err)
 	}
-	if storedAfterUpdate.APISecretHash == originalSecretHash {
-		t.Fatalf("expected api secret hash to change after update")
+	if storedAfterUpdate.APISecretHash == originalSecretCipher {
+		t.Fatalf("expected api secret ciphertext to change after update")
 	}
-	if err := bcrypt.CompareHashAndPassword([]byte(storedAfterUpdate.APISecretHash), []byte("updated-api-secret")); err != nil {
-		t.Fatalf("expected updated api secret to be hashed correctly: %v", err)
+	decryptedUpdatedSecret, err := security.DecryptString(storedAfterUpdate.APISecretHash)
+	if err != nil {
+		t.Fatalf("failed to decrypt updated api secret: %v", err)
+	}
+	if decryptedUpdatedSecret != "updated-api-secret" {
+		t.Fatalf("expected decrypted updated api secret to match, got %q", decryptedUpdatedSecret)
 	}
 
 	listReq = httptest.NewRequest(http.MethodGet, "/user-exchanges/forms", nil)
@@ -438,6 +482,8 @@ func (s *stubMexcConnector) TestConnection() error {
 }
 
 func TestTestMexcConnectionHandler_Success(t *testing.T) {
+	setEncryptionKeyForTest(t)
+
 	logger := logrus.NewEntry(logrus.StandardLogger())
 
 	exchangeStore := newInMemoryUserExchangeStore()
@@ -451,11 +497,21 @@ func TestTestMexcConnectionHandler_Success(t *testing.T) {
 
 	user := &model.User{ID: 42, Username: "bob"}
 
+	encryptedKey, err := security.EncryptString("mexc-key")
+	if err != nil {
+		t.Fatalf("failed to encrypt api key: %v", err)
+	}
+
+	encryptedSecret, err := security.EncryptString("mexc-secret")
+	if err != nil {
+		t.Fatalf("failed to encrypt api secret: %v", err)
+	}
+
 	ue := &model.UserExchange{
 		UserID:        user.ID,
 		ExchangeID:    mexcExchange.ID,
-		APIKeyHash:    "mexc-key",
-		APISecretHash: "mexc-secret",
+		APIKeyHash:    encryptedKey,
+		APISecretHash: encryptedSecret,
 	}
 	if err := exchangeStore.SaveUserExchange(ue); err != nil {
 		t.Fatalf("failed to seed user exchange: %v", err)
@@ -472,7 +528,10 @@ func TestTestMexcConnectionHandler_Success(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/user-exchanges/"+strconv.Itoa(int(mexcExchange.ID))+"/test", nil)
-	ctx := context.WithValue(req.Context(), auth.UserKey, user)
+	routeCtx := chi.NewRouteContext()
+	routeCtx.URLParams.Add("exchangeID", strconv.Itoa(int(mexcExchange.ID)))
+	ctx := context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx)
+	ctx = context.WithValue(ctx, auth.UserKey, user)
 	req = req.WithContext(ctx)
 
 	rr := httptest.NewRecorder()
@@ -500,6 +559,8 @@ func TestTestMexcConnectionHandler_Success(t *testing.T) {
 }
 
 func TestTestMexcConnectionHandler_Failure(t *testing.T) {
+	setEncryptionKeyForTest(t)
+
 	logger := logrus.NewEntry(logrus.StandardLogger())
 
 	exchangeStore := newInMemoryUserExchangeStore()
@@ -512,11 +573,20 @@ func TestTestMexcConnectionHandler_Failure(t *testing.T) {
 	}
 
 	user := &model.User{ID: 7, Username: "alice"}
+	encryptedKey, err := security.EncryptString("mexc-key")
+	if err != nil {
+		t.Fatalf("failed to encrypt api key: %v", err)
+	}
+	encryptedSecret, err := security.EncryptString("mexc-secret")
+	if err != nil {
+		t.Fatalf("failed to encrypt api secret: %v", err)
+	}
+
 	ue := &model.UserExchange{
 		UserID:        user.ID,
 		ExchangeID:    mexcExchange.ID,
-		APIKeyHash:    "mexc-key",
-		APISecretHash: "mexc-secret",
+		APIKeyHash:    encryptedKey,
+		APISecretHash: encryptedSecret,
 	}
 	if err := exchangeStore.SaveUserExchange(ue); err != nil {
 		t.Fatalf("failed to seed user exchange: %v", err)
@@ -531,7 +601,10 @@ func TestTestMexcConnectionHandler_Failure(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/user-exchanges/"+strconv.Itoa(int(mexcExchange.ID))+"/test", nil)
-	ctx := context.WithValue(req.Context(), auth.UserKey, user)
+	routeCtx := chi.NewRouteContext()
+	routeCtx.URLParams.Add("exchangeID", strconv.Itoa(int(mexcExchange.ID)))
+	ctx := context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx)
+	ctx = context.WithValue(ctx, auth.UserKey, user)
 	req = req.WithContext(ctx)
 
 	rr := httptest.NewRecorder()
@@ -547,6 +620,8 @@ func TestTestMexcConnectionHandler_Failure(t *testing.T) {
 }
 
 func TestTestMexcConnectionHandler_NotMexc(t *testing.T) {
+	setEncryptionKeyForTest(t)
+
 	logger := logrus.NewEntry(logrus.StandardLogger())
 
 	exchangeStore := newInMemoryUserExchangeStore()
@@ -559,18 +634,30 @@ func TestTestMexcConnectionHandler_NotMexc(t *testing.T) {
 	}
 
 	user := &model.User{ID: 11}
+	encryptedKey, err := security.EncryptString("binance-key")
+	if err != nil {
+		t.Fatalf("failed to encrypt api key: %v", err)
+	}
+	encryptedSecret, err := security.EncryptString("binance-secret")
+	if err != nil {
+		t.Fatalf("failed to encrypt api secret: %v", err)
+	}
+
 	ue := &model.UserExchange{
 		UserID:        user.ID,
 		ExchangeID:    otherExchange.ID,
-		APIKeyHash:    "binance-key",
-		APISecretHash: "binance-secret",
+		APIKeyHash:    encryptedKey,
+		APISecretHash: encryptedSecret,
 	}
 	if err := exchangeStore.SaveUserExchange(ue); err != nil {
 		t.Fatalf("failed to seed user exchange: %v", err)
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/user-exchanges/"+strconv.Itoa(int(otherExchange.ID))+"/test", nil)
-	ctx := context.WithValue(req.Context(), auth.UserKey, user)
+	routeCtx := chi.NewRouteContext()
+	routeCtx.URLParams.Add("exchangeID", strconv.Itoa(int(otherExchange.ID)))
+	ctx := context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx)
+	ctx = context.WithValue(ctx, auth.UserKey, user)
 	req = req.WithContext(ctx)
 
 	rr := httptest.NewRecorder()
@@ -596,6 +683,8 @@ func (m *mockMexcConnector) TestConnection() error {
 }
 
 func TestTestMexcConnectionHandlerSuccess(t *testing.T) {
+	setEncryptionKeyForTest(t)
+
 	logger := logrus.NewEntry(logrus.StandardLogger())
 
 	exchangeStore := newInMemoryUserExchangeStore()
@@ -612,14 +701,20 @@ func TestTestMexcConnectionHandlerSuccess(t *testing.T) {
 	apiKey := "test-api-key"
 	apiSecret := "test-api-secret"
 
-	apiKeyHash, _ := bcrypt.GenerateFromPassword([]byte(apiKey), bcrypt.DefaultCost)
-	apiSecretHash, _ := bcrypt.GenerateFromPassword([]byte(apiSecret), bcrypt.DefaultCost)
+	encryptedKey, err := security.EncryptString(apiKey)
+	if err != nil {
+		t.Fatalf("failed to encrypt api key: %v", err)
+	}
+	encryptedSecret, err := security.EncryptString(apiSecret)
+	if err != nil {
+		t.Fatalf("failed to encrypt api secret: %v", err)
+	}
 
 	userExchange := &model.UserExchange{
 		UserID:        42,
 		ExchangeID:    exchange.ID,
-		APIKeyHash:    string(apiKeyHash),
-		APISecretHash: string(apiSecretHash),
+		APIKeyHash:    encryptedKey,
+		APISecretHash: encryptedSecret,
 		Exchange:      exchange,
 	}
 
@@ -628,15 +723,15 @@ func TestTestMexcConnectionHandlerSuccess(t *testing.T) {
 	}
 
 	mockConnector := &mockMexcConnector{}
-	originalFactory := newMexcConnector
+	originalFactory := mexcConnectorFactory
 	var receivedKey, receivedSecret string
-	newMexcConnector = func(key, secret string) mexcConnector {
+	mexcConnectorFactory = func(key, secret string) mexcConnector {
 		receivedKey = key
 		receivedSecret = secret
 		return mockConnector
 	}
 	t.Cleanup(func() {
-		newMexcConnector = originalFactory
+		mexcConnectorFactory = originalFactory
 	})
 
 	payload := map[string]string{
@@ -660,13 +755,13 @@ func TestTestMexcConnectionHandlerSuccess(t *testing.T) {
 		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var response testConnectionResponse
+	var response map[string]string
 	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
 
-	if !response.Success {
-		t.Fatalf("expected success response")
+	if response["status"] != "ok" {
+		t.Fatalf("expected status ok, got %q", response["status"])
 	}
 
 	if mockConnector.called != 1 {
@@ -679,6 +774,8 @@ func TestTestMexcConnectionHandlerSuccess(t *testing.T) {
 }
 
 func TestTestMexcConnectionHandlerCredentialMismatch(t *testing.T) {
+	setEncryptionKeyForTest(t)
+
 	logger := logrus.NewEntry(logrus.StandardLogger())
 
 	exchangeStore := newInMemoryUserExchangeStore()
@@ -692,20 +789,38 @@ func TestTestMexcConnectionHandlerCredentialMismatch(t *testing.T) {
 		t.Fatalf("failed to create exchange: %v", err)
 	}
 
-	apiKeyHash, _ := bcrypt.GenerateFromPassword([]byte("stored-key"), bcrypt.DefaultCost)
-	apiSecretHash, _ := bcrypt.GenerateFromPassword([]byte("stored-secret"), bcrypt.DefaultCost)
+	encryptedKey, err := security.EncryptString("stored-key")
+	if err != nil {
+		t.Fatalf("failed to encrypt api key: %v", err)
+	}
+	encryptedSecret, err := security.EncryptString("stored-secret")
+	if err != nil {
+		t.Fatalf("failed to encrypt api secret: %v", err)
+	}
 
 	userExchange := &model.UserExchange{
 		UserID:        99,
 		ExchangeID:    exchange.ID,
-		APIKeyHash:    string(apiKeyHash),
-		APISecretHash: string(apiSecretHash),
+		APIKeyHash:    encryptedKey,
+		APISecretHash: encryptedSecret,
 		Exchange:      exchange,
 	}
 
 	if err := exchangeStore.SaveUserExchange(userExchange); err != nil {
 		t.Fatalf("failed to save user exchange: %v", err)
 	}
+
+	mockConnector := &mockMexcConnector{}
+	originalFactory := mexcConnectorFactory
+	var receivedKey, receivedSecret string
+	mexcConnectorFactory = func(key, secret string) mexcConnector {
+		receivedKey = key
+		receivedSecret = secret
+		return mockConnector
+	}
+	t.Cleanup(func() {
+		mexcConnectorFactory = originalFactory
+	})
 
 	payload := map[string]string{
 		"apiKey":    "wrong-key",
@@ -724,12 +839,18 @@ func TestTestMexcConnectionHandlerCredentialMismatch(t *testing.T) {
 	handler := TestMexcConnectionHandler(logger)
 	handler.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("expected status 400 for credential mismatch, got %d", rec.Code)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200 despite credential mismatch, got %d", rec.Code)
+	}
+
+	if receivedKey != "stored-key" || receivedSecret != "stored-secret" {
+		t.Fatalf("expected connector to receive stored credentials, got key=%q secret=%q", receivedKey, receivedSecret)
 	}
 }
 
 func TestTestMexcConnectionHandlerUnsupportedExchange(t *testing.T) {
+	setEncryptionKeyForTest(t)
+
 	logger := logrus.NewEntry(logrus.StandardLogger())
 
 	exchangeStore := newInMemoryUserExchangeStore()
@@ -743,14 +864,20 @@ func TestTestMexcConnectionHandlerUnsupportedExchange(t *testing.T) {
 		t.Fatalf("failed to create exchange: %v", err)
 	}
 
-	apiKeyHash, _ := bcrypt.GenerateFromPassword([]byte("stored-key"), bcrypt.DefaultCost)
-	apiSecretHash, _ := bcrypt.GenerateFromPassword([]byte("stored-secret"), bcrypt.DefaultCost)
+	encryptedKey, err := security.EncryptString("stored-key")
+	if err != nil {
+		t.Fatalf("failed to encrypt api key: %v", err)
+	}
+	encryptedSecret, err := security.EncryptString("stored-secret")
+	if err != nil {
+		t.Fatalf("failed to encrypt api secret: %v", err)
+	}
 
 	userExchange := &model.UserExchange{
 		UserID:        77,
 		ExchangeID:    exchange.ID,
-		APIKeyHash:    string(apiKeyHash),
-		APISecretHash: string(apiSecretHash),
+		APIKeyHash:    encryptedKey,
+		APISecretHash: encryptedSecret,
 		Exchange:      exchange,
 	}
 
@@ -781,6 +908,8 @@ func TestTestMexcConnectionHandlerUnsupportedExchange(t *testing.T) {
 }
 
 func TestTestMexcConnectionHandlerConnectorFailure(t *testing.T) {
+	setEncryptionKeyForTest(t)
+
 	logger := logrus.NewEntry(logrus.StandardLogger())
 
 	exchangeStore := newInMemoryUserExchangeStore()
@@ -797,14 +926,20 @@ func TestTestMexcConnectionHandlerConnectorFailure(t *testing.T) {
 	apiKey := "test-api-key"
 	apiSecret := "test-api-secret"
 
-	apiKeyHash, _ := bcrypt.GenerateFromPassword([]byte(apiKey), bcrypt.DefaultCost)
-	apiSecretHash, _ := bcrypt.GenerateFromPassword([]byte(apiSecret), bcrypt.DefaultCost)
+	encryptedKey, err := security.EncryptString(apiKey)
+	if err != nil {
+		t.Fatalf("failed to encrypt api key: %v", err)
+	}
+	encryptedSecret, err := security.EncryptString(apiSecret)
+	if err != nil {
+		t.Fatalf("failed to encrypt api secret: %v", err)
+	}
 
 	userExchange := &model.UserExchange{
 		UserID:        55,
 		ExchangeID:    exchange.ID,
-		APIKeyHash:    string(apiKeyHash),
-		APISecretHash: string(apiSecretHash),
+		APIKeyHash:    encryptedKey,
+		APISecretHash: encryptedSecret,
 		Exchange:      exchange,
 	}
 
@@ -813,12 +948,12 @@ func TestTestMexcConnectionHandlerConnectorFailure(t *testing.T) {
 	}
 
 	mockConnector := &mockMexcConnector{err: errors.New("ping failed")}
-	originalFactory := newMexcConnector
-	newMexcConnector = func(key, secret string) mexcConnector {
+	originalFactory := mexcConnectorFactory
+	mexcConnectorFactory = func(key, secret string) mexcConnector {
 		return mockConnector
 	}
 	t.Cleanup(func() {
-		newMexcConnector = originalFactory
+		mexcConnectorFactory = originalFactory
 	})
 
 	payload := map[string]string{
