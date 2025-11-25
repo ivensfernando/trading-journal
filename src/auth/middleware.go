@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"vsC1Y2025V01/src/repository"
 
 	"github.com/go-chi/cors"
 	"github.com/sirupsen/logrus"
@@ -38,9 +39,9 @@ func AuthMiddleware(logger *logrus.Entry) func(http.Handler) http.Handler {
 			}
 			logger.WithField("user_id", userID).Debug("Token parsed successfully")
 
-			user, err := getUserRepository().FindByID(userID)
+			user, err := repository.GetUserRepository().FindByID(userID)
 			if err != nil {
-				if errors.Is(err, ErrUserNotFound) {
+				if errors.Is(err, repository.ErrUserNotFound) {
 					logger.WithError(err).Warn("User not found in database")
 				} else {
 					logger.WithError(err).Error("Failed to load user for auth middleware")
@@ -52,7 +53,7 @@ func AuthMiddleware(logger *logrus.Entry) func(http.Handler) http.Handler {
 
 			// Update last seen timestamp
 			user.LastSeen = time.Now()
-			if err := getUserRepository().Update(user); err != nil {
+			if err := repository.GetUserRepository().Update(user); err != nil {
 				logger.WithError(err).Error("Failed to update last seen")
 			} else {
 				logger.WithField("username", user.Username).Debug("Last seen updated")
@@ -87,9 +88,9 @@ func RequireAuthMiddleware(logger *logrus.Entry) func(http.Handler) http.Handler
 				return
 			}
 
-			user, err := getUserRepository().FindByID(userID)
+			user, err := repository.GetUserRepository().FindByID(userID)
 			if err != nil {
-				if errors.Is(err, ErrUserNotFound) {
+				if errors.Is(err, repository.ErrUserNotFound) {
 					logger.WithError(err).Warn("User not found")
 				} else {
 					logger.WithError(err).Error("Failed to load user for cookie auth")
@@ -99,7 +100,7 @@ func RequireAuthMiddleware(logger *logrus.Entry) func(http.Handler) http.Handler
 			}
 
 			user.LastSeen = time.Now()
-			if err := getUserRepository().Update(user); err != nil {
+			if err := repository.GetUserRepository().Update(user); err != nil {
 				logger.WithError(err).Error("Failed to persist last seen timestamp")
 			}
 

@@ -1,11 +1,13 @@
-package auth
+package handler
 
 import (
 	"encoding/json"
 	"errors"
 	"net/http"
 	"time"
+	"vsC1Y2025V01/src/auth"
 	"vsC1Y2025V01/src/model"
+	"vsC1Y2025V01/src/repository"
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/bcrypt"
@@ -37,7 +39,7 @@ func RegisterHandler(logger *logrus.Entry) http.HandlerFunc {
 			UpdatedAt: time.Now(),
 		}
 
-		if err := getUserRepository().Create(&user); err != nil {
+		if err := repository.GetUserRepository().Create(&user); err != nil {
 			logger.WithError(err).Error("User registration failed")
 			http.Error(w, "Registration error", http.StatusInternalServerError)
 			return
@@ -61,9 +63,9 @@ func LoginHandler(logger *logrus.Entry) http.HandlerFunc {
 
 		logger.WithField("username", payload.Username).Info("Looking up user")
 
-		user, err := getUserRepository().FindByUsername(payload.Username)
+		user, err := repository.GetUserRepository().FindByUsername(payload.Username)
 		if err != nil {
-			if errors.Is(err, ErrUserNotFound) {
+			if errors.Is(err, repository.ErrUserNotFound) {
 				logger.WithError(err).Warn("User not found or DB error")
 				http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 				return
@@ -86,12 +88,12 @@ func LoginHandler(logger *logrus.Entry) http.HandlerFunc {
 		// Update login times
 		user.LastLogin = time.Now()
 		user.LastSeen = time.Now()
-		if err := getUserRepository().Update(user); err != nil {
+		if err := repository.GetUserRepository().Update(user); err != nil {
 			logger.WithError(err).Error("Failed to update last login timestamps")
 		}
 
 		// Generate JWT token
-		token, err := GenerateToken(user.ID)
+		token, err := auth.GenerateToken(user.ID)
 		if err != nil {
 			logger.WithError(err).Error("Failed to generate token")
 			http.Error(w, "Token error", http.StatusInternalServerError)
@@ -141,7 +143,7 @@ func LogoutHandler(logger *logrus.Entry) http.HandlerFunc {
 func MeHandler(logger *logrus.Entry) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		//user, ok := r.Context().Value("user").(*model.User)
-		user, ok := r.Context().Value(UserKey).(*model.User)
+		user, ok := r.Context().Value(auth.UserKey).(*model.User)
 		if !ok || user == nil {
 			logger.Warn("No user found in context1")
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)

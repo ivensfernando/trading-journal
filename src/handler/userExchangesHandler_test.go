@@ -1,4 +1,4 @@
-package userexchanges
+package handler
 
 import (
 	"bytes"
@@ -14,6 +14,7 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"vsC1Y2025V01/src/repository"
 
 	"vsC1Y2025V01/src/auth"
 	"vsC1Y2025V01/src/model"
@@ -84,7 +85,7 @@ func (r *inMemoryUserRepository) FindByUsername(username string) (*model.User, e
 		}
 	}
 
-	return nil, auth.ErrUserNotFound
+	return nil, repository.ErrUserNotFound
 }
 
 func (r *inMemoryUserRepository) FindByID(id uint) (*model.User, error) {
@@ -93,7 +94,7 @@ func (r *inMemoryUserRepository) FindByID(id uint) (*model.User, error) {
 
 	user, ok := r.users[id]
 	if !ok {
-		return nil, auth.ErrUserNotFound
+		return nil, repository.ErrUserNotFound
 	}
 
 	clone := *user
@@ -106,7 +107,7 @@ func (r *inMemoryUserRepository) Update(user *model.User) error {
 
 	stored, ok := r.users[user.ID]
 	if !ok {
-		return auth.ErrUserNotFound
+		return repository.ErrUserNotFound
 	}
 
 	if user.UpdatedAt.IsZero() {
@@ -162,7 +163,7 @@ func (s *inMemoryUserExchangeStore) GetExchangeByID(id uint) (*model.Exchange, e
 
 	exchange, ok := s.exchanges[id]
 	if !ok {
-		return nil, ErrExchangeNotFound
+		return nil, repository.ErrExchangeNotFound
 	}
 
 	clone := *exchange
@@ -176,7 +177,7 @@ func (s *inMemoryUserExchangeStore) FindUserExchange(userID, exchangeID uint) (*
 	key := userExchangeKey{UserID: userID, ExchangeID: exchangeID}
 	ue, ok := s.userExchanges[key]
 	if !ok {
-		return nil, ErrUserExchangeNotFound
+		return nil, repository.ErrUserExchangeNotFound
 	}
 
 	clone := *ue
@@ -255,20 +256,20 @@ func TestUserExchangeLifecycle(t *testing.T) {
 	logger := logrus.NewEntry(logrus.StandardLogger())
 
 	userRepo := newInMemoryUserRepository()
-	auth.SetUserRepository(userRepo)
+	repository.SetUserRepository(userRepo)
 	t.Cleanup(func() {
-		auth.SetUserRepository(nil)
+		repository.SetUserRepository(nil)
 	})
 
 	exchangeStore := newInMemoryUserExchangeStore()
-	SetUserExchangeStore(exchangeStore)
+	repository.SetUserExchangeStore(exchangeStore)
 	t.Cleanup(func() {
-		SetUserExchangeStore(nil)
+		repository.SetUserExchangeStore(nil)
 	})
 
 	router := chi.NewRouter()
-	router.Post("/auth/register", auth.RegisterHandler(logger))
-	router.Post("/auth/login", auth.LoginHandler(logger))
+	router.Post("/auth/register", RegisterHandler(logger))
+	router.Post("/auth/login", LoginHandler(logger))
 	router.Group(func(r chi.Router) {
 		r.Use(auth.RequireAuthMiddleware(logger))
 		r.Route("/user-exchanges", func(r chi.Router) {
@@ -487,8 +488,8 @@ func TestTestMexcConnectionHandler_Success(t *testing.T) {
 	logger := logrus.NewEntry(logrus.StandardLogger())
 
 	exchangeStore := newInMemoryUserExchangeStore()
-	SetUserExchangeStore(exchangeStore)
-	t.Cleanup(func() { SetUserExchangeStore(nil) })
+	repository.SetUserExchangeStore(exchangeStore)
+	t.Cleanup(func() { repository.SetUserExchangeStore(nil) })
 
 	mexcExchange := &model.Exchange{Name: "MEXC"}
 	if err := exchangeStore.CreateExchange(mexcExchange); err != nil {
@@ -564,8 +565,8 @@ func TestTestMexcConnectionHandler_Failure(t *testing.T) {
 	logger := logrus.NewEntry(logrus.StandardLogger())
 
 	exchangeStore := newInMemoryUserExchangeStore()
-	SetUserExchangeStore(exchangeStore)
-	t.Cleanup(func() { SetUserExchangeStore(nil) })
+	repository.SetUserExchangeStore(exchangeStore)
+	t.Cleanup(func() { repository.SetUserExchangeStore(nil) })
 
 	mexcExchange := &model.Exchange{Name: "MEXC"}
 	if err := exchangeStore.CreateExchange(mexcExchange); err != nil {
@@ -625,8 +626,8 @@ func TestTestMexcConnectionHandler_NotMexc(t *testing.T) {
 	logger := logrus.NewEntry(logrus.StandardLogger())
 
 	exchangeStore := newInMemoryUserExchangeStore()
-	SetUserExchangeStore(exchangeStore)
-	t.Cleanup(func() { SetUserExchangeStore(nil) })
+	repository.SetUserExchangeStore(exchangeStore)
+	t.Cleanup(func() { repository.SetUserExchangeStore(nil) })
 
 	otherExchange := &model.Exchange{Name: "Binance"}
 	if err := exchangeStore.CreateExchange(otherExchange); err != nil {
@@ -688,9 +689,9 @@ func TestTestMexcConnectionHandlerSuccess(t *testing.T) {
 	logger := logrus.NewEntry(logrus.StandardLogger())
 
 	exchangeStore := newInMemoryUserExchangeStore()
-	SetUserExchangeStore(exchangeStore)
+	repository.SetUserExchangeStore(exchangeStore)
 	t.Cleanup(func() {
-		SetUserExchangeStore(nil)
+		repository.SetUserExchangeStore(nil)
 	})
 
 	exchange := &model.Exchange{ID: 1, Name: "Mexc"}
@@ -779,9 +780,9 @@ func TestTestMexcConnectionHandlerCredentialMismatch(t *testing.T) {
 	logger := logrus.NewEntry(logrus.StandardLogger())
 
 	exchangeStore := newInMemoryUserExchangeStore()
-	SetUserExchangeStore(exchangeStore)
+	repository.SetUserExchangeStore(exchangeStore)
 	t.Cleanup(func() {
-		SetUserExchangeStore(nil)
+		repository.SetUserExchangeStore(nil)
 	})
 
 	exchange := &model.Exchange{ID: 1, Name: "Mexc"}
@@ -854,9 +855,9 @@ func TestTestMexcConnectionHandlerUnsupportedExchange(t *testing.T) {
 	logger := logrus.NewEntry(logrus.StandardLogger())
 
 	exchangeStore := newInMemoryUserExchangeStore()
-	SetUserExchangeStore(exchangeStore)
+	repository.SetUserExchangeStore(exchangeStore)
 	t.Cleanup(func() {
-		SetUserExchangeStore(nil)
+		repository.SetUserExchangeStore(nil)
 	})
 
 	exchange := &model.Exchange{ID: 1, Name: "Kucoin"}
@@ -913,9 +914,9 @@ func TestTestMexcConnectionHandlerConnectorFailure(t *testing.T) {
 	logger := logrus.NewEntry(logrus.StandardLogger())
 
 	exchangeStore := newInMemoryUserExchangeStore()
-	SetUserExchangeStore(exchangeStore)
+	repository.SetUserExchangeStore(exchangeStore)
 	t.Cleanup(func() {
-		SetUserExchangeStore(nil)
+		repository.SetUserExchangeStore(nil)
 	})
 
 	exchange := &model.Exchange{ID: 1, Name: "Mexc"}

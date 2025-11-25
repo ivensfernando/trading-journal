@@ -1,4 +1,4 @@
-package userexchanges
+package repository
 
 import (
 	"errors"
@@ -26,7 +26,7 @@ type UserExchangeStore interface {
 
 var (
 	storeMu sync.RWMutex
-	store   UserExchangeStore = &gormUserExchangeStore{}
+	store   UserExchangeStore = &gormUserExchangeRepository{}
 )
 
 func SetUserExchangeStore(s UserExchangeStore) {
@@ -34,14 +34,14 @@ func SetUserExchangeStore(s UserExchangeStore) {
 	defer storeMu.Unlock()
 
 	if s == nil {
-		store = &gormUserExchangeStore{}
+		store = &gormUserExchangeRepository{}
 		return
 	}
 
 	store = s
 }
 
-func getUserExchangeStore() UserExchangeStore {
+func GetUserExchangeStore() UserExchangeStore {
 	storeMu.RLock()
 	current := store
 	storeMu.RUnlock()
@@ -54,15 +54,15 @@ func getUserExchangeStore() UserExchangeStore {
 	defer storeMu.Unlock()
 
 	if store == nil {
-		store = &gormUserExchangeStore{}
+		store = &gormUserExchangeRepository{}
 	}
 
 	return store
 }
 
-type gormUserExchangeStore struct{}
+type gormUserExchangeRepository struct{}
 
-func (s *gormUserExchangeStore) CreateExchange(exchange *model.Exchange) error {
+func (s *gormUserExchangeRepository) CreateExchange(exchange *model.Exchange) error {
 	if db.DB == nil {
 		return errors.New("database connection is not initialized")
 	}
@@ -70,7 +70,7 @@ func (s *gormUserExchangeStore) CreateExchange(exchange *model.Exchange) error {
 	return db.DB.Create(exchange).Error
 }
 
-func (s *gormUserExchangeStore) GetExchangeByID(id uint) (*model.Exchange, error) {
+func (s *gormUserExchangeRepository) GetExchangeByID(id uint) (*model.Exchange, error) {
 	if db.DB == nil {
 		return nil, errors.New("database connection is not initialized")
 	}
@@ -87,7 +87,7 @@ func (s *gormUserExchangeStore) GetExchangeByID(id uint) (*model.Exchange, error
 	return &exchange, nil
 }
 
-func (s *gormUserExchangeStore) FindUserExchange(userID, exchangeID uint) (*model.UserExchange, error) {
+func (s *gormUserExchangeRepository) FindUserExchange(userID, exchangeID uint) (*model.UserExchange, error) {
 	if db.DB == nil {
 		return nil, errors.New("database connection is not initialized")
 	}
@@ -104,7 +104,7 @@ func (s *gormUserExchangeStore) FindUserExchange(userID, exchangeID uint) (*mode
 	return &userExchange, nil
 }
 
-func (s *gormUserExchangeStore) SaveUserExchange(ue *model.UserExchange) error {
+func (s *gormUserExchangeRepository) SaveUserExchange(ue *model.UserExchange) error {
 	if db.DB == nil {
 		return errors.New("database connection is not initialized")
 	}
@@ -112,7 +112,7 @@ func (s *gormUserExchangeStore) SaveUserExchange(ue *model.UserExchange) error {
 	return db.DB.Save(ue).Error
 }
 
-func (s *gormUserExchangeStore) ListFormUserExchanges(userID uint) ([]model.UserExchange, error) {
+func (s *gormUserExchangeRepository) ListFormUserExchanges(userID uint) ([]model.UserExchange, error) {
 	if db.DB == nil {
 		return nil, errors.New("database connection is not initialized")
 	}
@@ -125,7 +125,7 @@ func (s *gormUserExchangeStore) ListFormUserExchanges(userID uint) ([]model.User
 	return exchanges, nil
 }
 
-func (s *gormUserExchangeStore) DeleteUserExchange(userID, exchangeID uint) (bool, error) {
+func (s *gormUserExchangeRepository) DeleteUserExchange(userID, exchangeID uint) (bool, error) {
 	if db.DB == nil {
 		return false, errors.New("database connection is not initialized")
 	}

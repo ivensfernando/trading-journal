@@ -1,4 +1,4 @@
-package auth
+package repository
 
 import (
 	"errors"
@@ -37,7 +37,7 @@ func SetUserRepository(repo UserRepository) {
 	userRepo = repo
 }
 
-func getUserRepository() UserRepository {
+func GetUserRepository() UserRepository {
 	userRepoMu.RLock()
 	repo := userRepo
 	userRepoMu.RUnlock()

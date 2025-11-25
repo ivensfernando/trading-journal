@@ -8,6 +8,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+	handler2 "vsC1Y2025V01/src/handler"
+	"vsC1Y2025V01/src/repository"
 
 	"vsC1Y2025V01/src/model"
 
@@ -53,7 +55,7 @@ func (r *inMemoryUserRepository) FindByUsername(username string) (*model.User, e
 		}
 	}
 
-	return nil, ErrUserNotFound
+	return nil, repository.ErrUserNotFound
 }
 
 func (r *inMemoryUserRepository) FindByID(id uint) (*model.User, error) {
@@ -62,7 +64,7 @@ func (r *inMemoryUserRepository) FindByID(id uint) (*model.User, error) {
 
 	user, ok := r.users[id]
 	if !ok {
-		return nil, ErrUserNotFound
+		return nil, repository.ErrUserNotFound
 	}
 
 	clone := *user
@@ -75,7 +77,7 @@ func (r *inMemoryUserRepository) Update(user *model.User) error {
 
 	stored, ok := r.users[user.ID]
 	if !ok {
-		return ErrUserNotFound
+		return repository.ErrUserNotFound
 	}
 
 	if user.UpdatedAt.IsZero() {
@@ -95,9 +97,9 @@ func TestRegisterAndLogin(t *testing.T) {
 	logger := logrus.NewEntry(logrus.StandardLogger())
 
 	repo := newInMemoryUserRepository()
-	SetUserRepository(repo)
+	repository.SetUserRepository(repo)
 	t.Cleanup(func() {
-		SetUserRepository(nil)
+		repository.SetUserRepository(nil)
 	})
 
 	// Setup test user payload
@@ -110,7 +112,7 @@ func TestRegisterAndLogin(t *testing.T) {
 	// Test registration
 	req := httptest.NewRequest("POST", "/auth/register", bytes.NewReader(body))
 	rec := httptest.NewRecorder()
-	handler := RegisterHandler(logger)
+	handler := handler2.RegisterHandler(logger)
 	handler.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusCreated {
@@ -120,7 +122,7 @@ func TestRegisterAndLogin(t *testing.T) {
 	// Test login
 	req = httptest.NewRequest("POST", "/auth/login", bytes.NewReader(body))
 	rec = httptest.NewRecorder()
-	LoginHandler(logger).ServeHTTP(rec, req)
+	handler2.LoginHandler(logger).ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", rec.Code)

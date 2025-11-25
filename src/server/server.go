@@ -1,26 +1,9 @@
-//package server
-//
-//import (
-//	"context"
-//	"github.com/sirupsen/logrus"
-//	"net/http"
-//	"os"
-//	"os/signal"
-//	"syscall"
-//	"time"
-//	"vsC1Y2025V01/src/alerts"
-//)
-//
-////import "github.com/sirupsen/logrus"
-////
-////func StartServer(port string, loggers *logrus.Entry) {
-////
-////}
-
 package server
 
 import (
 	"context"
+	"github.com/go-chi/chi/v5"
+	"github.com/sirupsen/logrus"
 	"net/http"
 	"os"
 	"os/signal"
@@ -28,13 +11,8 @@ import (
 	"time"
 	"vsC1Y2025V01/src/alerts"
 	"vsC1Y2025V01/src/auth"
+	"vsC1Y2025V01/src/handler"
 	"vsC1Y2025V01/src/lookup"
-	"vsC1Y2025V01/src/trades"
-	"vsC1Y2025V01/src/userexchanges"
-	"vsC1Y2025V01/src/users"
-
-	"github.com/go-chi/chi/v5"
-	"github.com/sirupsen/logrus"
 )
 
 func StartServer(port string, logger *logrus.Entry) {
@@ -74,31 +52,31 @@ func StartServer(port string, logger *logrus.Entry) {
 	})
 
 	r.Post("/alerts", alerts.AlertHandler(logger))
-	r.Post("/auth/register", auth.RegisterHandler(logger))
-	r.Post("/auth/login", auth.LoginHandler(logger))
+	r.Post("/auth/register", handler.RegisterHandler(logger))
+	r.Post("/auth/login", handler.LoginHandler(logger))
 
 	// Protected routes (JWT required)
 	r.Group(func(r chi.Router) {
 
 		r.Use(auth.RequireAuthMiddleware(logger)) // ✅ <— protect the routes
 
-		r.Get("/me", auth.MeHandler(logger))
-		r.Put("/me", users.UpdateUserHandler(logger))
-		r.Get("/logout", auth.LogoutHandler(logger))
+		r.Get("/me", handler.MeHandler(logger))
+		r.Put("/me", handler.UpdateUserHandler(logger))
+		r.Get("/logout", handler.LogoutHandler(logger))
 
 		// CRUD Routes for Trades
-		r.Get("/trades", trades.ListTradesHandler(logger))
-		r.Get("/trades/{id}", trades.GetTradeHandler(logger))
-		r.Post("/trades", trades.CreateTradeHandler(logger))
-		r.Put("/trades/{id}", trades.UpdateTradeHandler(logger))
-		r.Delete("/trades", trades.DeleteManyTradesHandler(logger))
-		r.Delete("/trades/{id}", trades.DeleteTradeHandler(logger))
+		r.Get("/trades", handler.ListTradesHandler(logger))
+		r.Get("/trades/{id}", handler.GetTradeHandler(logger))
+		r.Post("/trades", handler.CreateTradeHandler(logger))
+		r.Put("/trades/{id}", handler.UpdateTradeHandler(logger))
+		r.Delete("/trades", handler.DeleteManyTradesHandler(logger))
+		r.Delete("/trades/{id}", handler.DeleteTradeHandler(logger))
 
 		r.Route("/user-exchanges", func(r chi.Router) {
-			r.Post("/", userexchanges.UpsertUserExchangeHandler(logger))
-			r.Get("/forms", userexchanges.ListFormUserExchangesHandler(logger))
-			r.Post("/{exchangeID}/test", userexchanges.TestMexcConnectionHandler(logger))
-			r.Delete("/{exchangeID}", userexchanges.DeleteUserExchangeHandler(logger))
+			r.Post("/", handler.UpsertUserExchangeHandler(logger))
+			r.Get("/forms", handler.ListFormUserExchangesHandler(logger))
+			r.Post("/{exchangeID}/test", handler.TestMexcConnectionHandler(logger))
+			r.Delete("/{exchangeID}", handler.DeleteUserExchangeHandler(logger))
 		})
 
 	})

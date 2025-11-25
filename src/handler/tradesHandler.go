@@ -1,4 +1,4 @@
-package trades
+package handler
 
 import (
 	"encoding/json"
@@ -110,7 +110,11 @@ func ListTradesHandler(logger *logrus.Entry) http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 
-		json.NewEncoder(w).Encode(trades)
+		if err := json.NewEncoder(w).Encode(trades); err != nil {
+			logger.WithError(err).Error("Failed to encode trades response")
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
 	}
 }
 
@@ -285,15 +289,19 @@ func GetTradeHandler(logger *logrus.Entry) http.HandlerFunc {
 		w.Header().Set("Access-Control-Expose-Headers", "Content-Range,X-Total-Count")
 		w.Header().Set("X-Total-Count", "1")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
 			"data": tradeR,
-		})
+		}); err != nil {
+			logger.WithError(err).Error("Failed to encode trade response")
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
 	}
 }
 
 type contextKey string
 
-const UserKey contextKey = "user"
+//const UserKey contextKey = "user"
 
 func CreateTradeHandler(logger *logrus.Entry) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -367,9 +375,13 @@ func CreateTradeHandler(logger *logrus.Entry) http.HandlerFunc {
 		//	},
 		//})
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
 			"data": trade,
-		})
+		}); err != nil {
+			logger.WithError(err).Error("Failed to encode trade response")
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
 	}
 }
 
@@ -526,9 +538,13 @@ func UpdateTradeHandler(logger *logrus.Entry) http.HandlerFunc {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
 			"data": trade,
-		})
+		}); err != nil {
+			logger.WithError(err).Error("Failed to encode trade response")
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
 	}
 }
 
@@ -591,8 +607,12 @@ func DeleteManyTradesHandler(logger *logrus.Entry) http.HandlerFunc {
 		logger.WithField("ids", payload.IDs).Info("Deleted trades")
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
 			"data": payload.IDs,
-		})
+		}); err != nil {
+			logger.WithError(err).Error("Failed to encode delete response")
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
 	}
 }

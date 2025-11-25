@@ -1,4 +1,4 @@
-package userexchanges
+package handler
 
 import (
 	"encoding/json"
@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"vsC1Y2025V01/src/repository"
 
 	"vsC1Y2025V01/internal/connectors"
 	"vsC1Y2025V01/src/auth"
@@ -66,9 +67,9 @@ func UpsertUserExchangeHandler(logger *logrus.Entry) http.HandlerFunc {
 		payload.APISecret = strings.TrimSpace(payload.APISecret)
 		payload.APIPassphrase = strings.TrimSpace(payload.APIPassphrase)
 
-		exchange, err := getUserExchangeStore().GetExchangeByID(payload.ExchangeID)
+		exchange, err := repository.GetUserExchangeStore().GetExchangeByID(payload.ExchangeID)
 		if err != nil {
-			if errors.Is(err, ErrExchangeNotFound) {
+			if errors.Is(err, repository.ErrExchangeNotFound) {
 				http.Error(w, "exchange not found", http.StatusBadRequest)
 				return
 			}
@@ -78,9 +79,9 @@ func UpsertUserExchangeHandler(logger *logrus.Entry) http.HandlerFunc {
 			return
 		}
 
-		userExchange, err := getUserExchangeStore().FindUserExchange(user.ID, payload.ExchangeID)
+		userExchange, err := repository.GetUserExchangeStore().FindUserExchange(user.ID, payload.ExchangeID)
 		if err != nil {
-			if errors.Is(err, ErrUserExchangeNotFound) {
+			if errors.Is(err, repository.ErrUserExchangeNotFound) {
 				userExchange = &model.UserExchange{
 					UserID:     user.ID,
 					ExchangeID: payload.ExchangeID,
@@ -124,7 +125,7 @@ func UpsertUserExchangeHandler(logger *logrus.Entry) http.HandlerFunc {
 
 		userExchange.ShowInForms = payload.ShowInForms
 
-		if err := getUserExchangeStore().SaveUserExchange(userExchange); err != nil {
+		if err := repository.GetUserExchangeStore().SaveUserExchange(userExchange); err != nil {
 			logger.WithError(err).Error("failed to upsert user exchange")
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
@@ -148,7 +149,7 @@ func ListFormUserExchangesHandler(logger *logrus.Entry) http.HandlerFunc {
 			return
 		}
 
-		userExchanges, err := getUserExchangeStore().ListFormUserExchanges(user.ID)
+		userExchanges, err := repository.GetUserExchangeStore().ListFormUserExchanges(user.ID)
 		if err != nil {
 			logger.WithError(err).Error("failed to list user exchanges for forms")
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -188,7 +189,7 @@ func DeleteUserExchangeHandler(logger *logrus.Entry) http.HandlerFunc {
 			return
 		}
 
-		deleted, err := getUserExchangeStore().DeleteUserExchange(user.ID, uint(exchangeID))
+		deleted, err := repository.GetUserExchangeStore().DeleteUserExchange(user.ID, uint(exchangeID))
 		if err != nil {
 			logger.WithError(err).Error("failed to delete user exchange")
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -225,9 +226,9 @@ func TestMexcConnectionHandler(logger *logrus.Entry) http.HandlerFunc {
 			return
 		}
 
-		userExchange, err := getUserExchangeStore().FindUserExchange(user.ID, uint(exchangeID))
+		userExchange, err := repository.GetUserExchangeStore().FindUserExchange(user.ID, uint(exchangeID))
 		if err != nil {
-			if errors.Is(err, ErrUserExchangeNotFound) {
+			if errors.Is(err, repository.ErrUserExchangeNotFound) {
 				http.Error(w, "user exchange not found", http.StatusNotFound)
 				return
 			}
@@ -239,9 +240,9 @@ func TestMexcConnectionHandler(logger *logrus.Entry) http.HandlerFunc {
 
 		exchange := userExchange.Exchange
 		if exchange == nil {
-			exchange, err = getUserExchangeStore().GetExchangeByID(uint(exchangeID))
+			exchange, err = repository.GetUserExchangeStore().GetExchangeByID(uint(exchangeID))
 			if err != nil {
-				if errors.Is(err, ErrExchangeNotFound) {
+				if errors.Is(err, repository.ErrExchangeNotFound) {
 					http.Error(w, "exchange not found", http.StatusNotFound)
 					return
 				}
