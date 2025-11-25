@@ -10,23 +10,45 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// GET /exchanges
-func ListExchanges(logger *logrus.Entry) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+var (
+	fetchExchanges = func() ([]model.Exchange, int64, error) {
 		var exchanges []model.Exchange
 		var total int64
 
-		// Count total first
 		if err := db.DB.Model(&model.Exchange{}).Count(&total).Error; err != nil {
-			logger.WithError(err).Error("Failed to count exchanges")
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-			return
+			return nil, 0, err
 		}
 
-		// Now fetch data (optionally add pagination later)
 		if err := db.DB.Find(&exchanges).Error; err != nil {
-			logger.WithError(err).Error("Failed to fetch exchanges")
-			http.Error(w, "Error fetching exchanges", http.StatusInternalServerError)
+			return nil, 0, err
+		}
+
+		return exchanges, total, nil
+	}
+
+	fetchPairs = func() ([]model.PairsCoins, int64, error) {
+		var pairs []model.PairsCoins
+		var total int64
+
+		if err := db.DB.Model(&model.PairsCoins{}).Count(&total).Error; err != nil {
+			return nil, 0, err
+		}
+
+		if err := db.DB.Find(&pairs).Error; err != nil {
+			return nil, 0, err
+		}
+
+		return pairs, total, nil
+	}
+)
+
+// GET /exchanges
+func ListExchanges(logger *logrus.Entry) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		exchanges, total, err := fetchExchanges()
+		if err != nil {
+			logger.WithError(err).Error("Failed to count exchanges")
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
 
@@ -35,27 +57,22 @@ func ListExchanges(logger *logrus.Entry) http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 
-		json.NewEncoder(w).Encode(exchanges)
+		if err := json.NewEncoder(w).Encode(exchanges); err != nil {
+			logger.WithError(err).Error("Failed to encode exchanges to JSON")
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+
+		}
 	}
 }
 
 // GET /pairs
 func ListPairs(logger *logrus.Entry) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var pairs []model.PairsCoins
-		var total int64
-
-		// Count total first
-		if err := db.DB.Model(&model.PairsCoins{}).Count(&total).Error; err != nil {
+		pairs, total, err := fetchPairs()
+		if err != nil {
 			logger.WithError(err).Error("Failed to count exchanges")
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-			return
-		}
-
-		// Now fetch data (optionally add pagination later)
-		if err := db.DB.Find(&pairs).Error; err != nil {
-			logger.WithError(err).Error("Failed to fetch exchanges")
-			http.Error(w, "Error fetching exchanges", http.StatusInternalServerError)
 			return
 		}
 
@@ -64,6 +81,10 @@ func ListPairs(logger *logrus.Entry) http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 
-		json.NewEncoder(w).Encode(pairs)
+		if err := json.NewEncoder(w).Encode(pairs); err != nil {
+			logger.WithError(err).Error("Failed to encode pairs to JSON")
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
 	}
 }
