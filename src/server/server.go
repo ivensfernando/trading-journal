@@ -47,45 +47,48 @@ func StartServer(port string, logger *logrus.Entry) {
 		}
 	})
 
-	r.Route("/lookup", func(r chi.Router) {
-		r.Get("/exchanges", lookup.ListExchanges(logger))
-		r.Get("/pairs", lookup.ListPairs(logger))
-	})
-
 	r.Post("/trading/webhook/{token}", handler.AlertHandler(logger))
-	r.Post("/auth/register", handler.RegisterHandler(logger))
-	r.Post("/auth/login", handler.LoginHandler(logger))
 
-	// Protected routes (JWT required)
-	r.Group(func(r chi.Router) {
-
-		r.Use(auth.RequireAuthMiddleware(logger)) // ✅ <— protect the routes
-
-		r.Get("/me", handler.MeHandler(logger))
-		r.Put("/me", handler.UpdateUserHandler(logger))
-		r.Get("/logout", handler.LogoutHandler(logger))
-
-		// CRUD Routes for Trades
-		r.Get("/trades", handler.ListTradesHandler(logger))
-		r.Get("/trades/{id}", handler.GetTradeHandler(logger))
-		r.Post("/trades", handler.CreateTradeHandler(logger))
-		r.Put("/trades/{id}", handler.UpdateTradeHandler(logger))
-		r.Delete("/trades", handler.DeleteManyTradesHandler(logger))
-		r.Delete("/trades/{id}", handler.DeleteTradeHandler(logger))
-
-		r.Route("/user-exchanges", func(r chi.Router) {
-			r.Post("/", handler.UpsertUserExchangeHandler(logger))
-			r.Get("/forms", handler.ListFormUserExchangesHandler(logger))
-			r.Post("/{exchangeID}/test", handler.TestMexcConnectionHandler(logger))
-			r.Delete("/{exchangeID}", handler.DeleteUserExchangeHandler(logger))
+	r.Route("/api/v1", func(r chi.Router) {
+		r.Route("/lookup", func(r chi.Router) {
+			r.Get("/exchanges", lookup.ListExchanges(logger))
+			r.Get("/pairs", lookup.ListPairs(logger))
 		})
 
-		r.Post("/webhooks", handler.CreateWebhookHandler(logger))
-		r.Get("/webhooks", handler.ListWebhooksHandler(logger))
-		r.Put("/webhooks/{id}", handler.UpdateWebhookHandler(logger))
-		r.Delete("/webhooks/{id}", handler.DeleteWebhookHandler(logger))
-		r.Get("/webhook-alerts", handler.ListWebhookAlertsHandler(logger))
+		r.Post("/auth/register", handler.RegisterHandler(logger))
+		r.Post("/auth/login", handler.LoginHandler(logger))
 
+		// Protected routes (JWT required)
+		r.Group(func(r chi.Router) {
+
+			r.Use(auth.RequireAuthMiddleware(logger)) // ✅ <— protect the routes
+
+			r.Get("/me", handler.MeHandler(logger))
+			r.Put("/me", handler.UpdateUserHandler(logger))
+			r.Get("/logout", handler.LogoutHandler(logger))
+
+			// CRUD Routes for Trades
+			r.Get("/trades", handler.ListTradesHandler(logger))
+			r.Get("/trades/{id}", handler.GetTradeHandler(logger))
+			r.Post("/trades", handler.CreateTradeHandler(logger))
+			r.Put("/trades/{id}", handler.UpdateTradeHandler(logger))
+			r.Delete("/trades", handler.DeleteManyTradesHandler(logger))
+			r.Delete("/trades/{id}", handler.DeleteTradeHandler(logger))
+
+			r.Route("/user-exchanges", func(r chi.Router) {
+				r.Post("/", handler.UpsertUserExchangeHandler(logger))
+				r.Get("/forms", handler.ListFormUserExchangesHandler(logger))
+				r.Post("/{exchangeID}/test", handler.TestMexcConnectionHandler(logger))
+				r.Delete("/{exchangeID}", handler.DeleteUserExchangeHandler(logger))
+			})
+
+			r.Post("/webhooks", handler.CreateWebhookHandler(logger))
+			r.Get("/webhooks", handler.ListWebhooksHandler(logger))
+			r.Put("/webhooks/{id}", handler.UpdateWebhookHandler(logger))
+			r.Delete("/webhooks/{id}", handler.DeleteWebhookHandler(logger))
+			r.Get("/webhook-alerts", handler.ListWebhookAlertsHandler(logger))
+
+		})
 	})
 	// Graceful server
 	// Server setup

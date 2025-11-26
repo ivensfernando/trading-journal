@@ -57,6 +57,25 @@ vsC1Y2025V01/
    go test ./...
    ```
 
+## API base path and documentation
+- Public health checks remain at `/health`, and trading alerts are still accepted at `/trading/webhook/{token}`.
+- All other client-facing endpoints (authentication, trades, lookup, user exchanges, webhooks, webhook alerts, etc.) are versioned under `/api/v1`.
+
+To explore the OpenAPI (Swagger) definition in a browser, you can run a local Swagger UI container that serves the bundled `openapi.yaml`:
+
+```bash
+docker run --rm -p 8080:8080 -e SWAGGER_JSON=/swagger.yaml \
+  -v "$(pwd)/openapi.yaml:/openapi.yaml" swaggerapi/swagger-ui
+```
+
+Or use the Makefile shortcut:
+
+```bash
+make swagger
+```
+
+Then open http://localhost:8080 in your browser. The UI will load the specification from the mounted `openapi.yaml` file.
+
 ## License
 This project is licensed under the MIT License.
 

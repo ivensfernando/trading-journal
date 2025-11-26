@@ -22,6 +22,10 @@ env:
 	@echo "Exporting environment variables..."
 	export $(cat .env | xargs)
 
+swagger:
+	@echo "Serving Swagger UI on http://localhost:8080 using swagger.yaml"
+	docker run --rm -p 8080:8080 -e SWAGGER_JSON=swagger.yaml -v "$(PWD)/docs/swagger.yaml:/swagger.yaml" swaggerapi/swagger-ui
+
 
 build_server:
 	go build -o $(BINARY_NAME) ./...

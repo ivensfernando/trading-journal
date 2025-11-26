@@ -33,7 +33,7 @@ paths:
                 type: string
                 example: OK
 
-  /lookup/exchanges:
+  /api/v1/lookup/exchanges:
     get:
       tags: [Lookup]
       summary: List supported exchanges
@@ -47,7 +47,7 @@ paths:
                 items:
                   $ref: '#/components/schemas/Exchange'
 
-  /lookup/pairs:
+  /api/v1/lookup/pairs:
     get:
       tags: [Lookup]
       summary: List supported pairs
@@ -61,7 +61,7 @@ paths:
                 items:
                   $ref: '#/components/schemas/Pair'
 
-  /auth/register:
+  /api/v1/auth/register:
     post:
       tags: [Authentication]
       summary: Register a new user
@@ -84,7 +84,7 @@ paths:
         '500':
           description: Registration error
 
-  /auth/login:
+  /api/v1/auth/login:
     post:
       tags: [Authentication]
       summary: Log in and receive JWT cookie
@@ -110,7 +110,7 @@ paths:
         '401':
           description: Invalid credentials
 
-  /logout:
+  /api/v1/logout:
     get:
       tags: [Authentication]
       summary: Clear JWT cookie and log out
@@ -128,7 +128,7 @@ paths:
         '401':
           description: Unauthorized
 
-  /me:
+  /api/v1/me:
     get:
       tags: [Authentication]
       summary: Get current user profile
@@ -166,7 +166,7 @@ paths:
         '401':
           description: Unauthorized
 
-  /trades:
+  /api/v1/trades:
     get:
       tags: [Trades]
       summary: List trades for the current user
@@ -263,7 +263,7 @@ paths:
         '400':
           description: Invalid request
 
-  /trades/{id}:
+  /api/v1/trades/{id}:
     get:
       tags: [Trades]
       summary: Get a trade by ID
@@ -340,7 +340,7 @@ paths:
         '404':
           description: Trade not found
 
-  /user-exchanges/:
+  /api/v1/user-exchanges/:
     post:
       tags: [User Exchanges]
       summary: Create or update an exchange credential for the user
@@ -365,7 +365,7 @@ paths:
         '401':
           description: Unauthorized
 
-  /user-exchanges/forms:
+  /api/v1/user-exchanges/forms:
     get:
       tags: [User Exchanges]
       summary: List exchanges available for forms
@@ -384,7 +384,7 @@ paths:
         '401':
           description: Unauthorized
 
-  /user-exchanges/{exchangeID}/test:
+  /api/v1/user-exchanges/{exchangeID}/test:
     post:
       tags: [User Exchanges]
       summary: Test MEXC connection for a stored exchange
@@ -417,7 +417,7 @@ paths:
         '404':
           description: Exchange not found
 
-  /user-exchanges/{exchangeID}:
+  /api/v1/user-exchanges/{exchangeID}:
     delete:
       tags: [User Exchanges]
       summary: Delete stored credentials for an exchange
@@ -438,7 +438,7 @@ paths:
         '404':
           description: Not found
 
-  /webhooks:
+  /api/v1/webhooks:
     post:
       tags: [Webhooks]
       summary: Create a webhook configuration
@@ -502,7 +502,7 @@ paths:
         '401':
           description: Unauthorized
 
-  /webhooks/{id}:
+  /api/v1/webhooks/{id}:
     put:
       tags: [Webhooks]
       summary: Update a webhook
@@ -551,7 +551,7 @@ paths:
         '404':
           description: Not found
 
-  /webhook-alerts:
+  /api/v1/webhook-alerts:
     get:
       tags: [Alerts]
       summary: List webhook alerts for current user
