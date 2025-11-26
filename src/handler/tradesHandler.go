@@ -40,36 +40,6 @@ type TradeListResponse struct {
 //		}
 //	}
 
-func parseRangeParams(r *http.Request) (offset, limit int) {
-	rangeStr := r.URL.Query().Get("range")
-	var rangeVals [2]int
-	if rangeStr == "" || json.Unmarshal([]byte(rangeStr), &rangeVals) != nil {
-		return 0, 10 // default
-	}
-	return rangeVals[0], rangeVals[1] - rangeVals[0] + 1
-}
-
-func parseSortParams(r *http.Request) (field, direction string) {
-	sortStr := r.URL.Query().Get("sort")
-	var sortVals [2]string
-	if sortStr == "" || json.Unmarshal([]byte(sortStr), &sortVals) != nil {
-		return "id", "ASC"
-	}
-	return sortVals[0], sortVals[1]
-}
-
-func parseFilterParams(r *http.Request) map[string]string {
-	filterStr := r.URL.Query().Get("filter")
-	if filterStr == "" {
-		return nil
-	}
-	var filters map[string]string
-	if err := json.Unmarshal([]byte(filterStr), &filters); err != nil {
-		return nil
-	}
-	return filters
-}
-
 func ListTradesHandler(logger *logrus.Entry) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user, ok := auth.GetUserFromContext(r.Context())
@@ -78,9 +48,9 @@ func ListTradesHandler(logger *logrus.Entry) http.HandlerFunc {
 			return
 		}
 
-		offset, limit := parseRangeParams(r)
-		sortField, sortDir := parseSortParams(r)
-		filters := parseFilterParams(r)
+		offset, limit := ParseRangeParams(r)
+		sortField, sortDir := ParseSortParams(r)
+		filters := ParseFilterParams(r)
 
 		query := db.DB.Model(&model.Trade{}).Where("user_id = ?", user.ID)
 
@@ -299,7 +269,7 @@ func GetTradeHandler(logger *logrus.Entry) http.HandlerFunc {
 	}
 }
 
-type contextKey string
+//type contextKey string
 
 //const UserKey contextKey = "user"
 
@@ -385,98 +355,98 @@ func CreateTradeHandler(logger *logrus.Entry) http.HandlerFunc {
 	}
 }
 
-func ApplyTradePatch(t *model.Trade, p model.UpdateTradePayload, loc *time.Location) error {
-	if p.Exchange != nil {
-		t.Exchange = *p.Exchange
-	}
-	if p.Symbol != nil {
-		t.Symbol = *p.Symbol
-	}
-	if p.TradeDate != nil || p.TradeTime != nil {
-		dateStr := t.TradeDate.Format("2006-01-02")
-		timeStr := t.TradeTime
-		//if p.TradeDate != nil && *p.TradeDate != nil {
-		//	dateStr = **p.TradeDate
-		//}
-		if p.TradeTime != nil {
-			//timeStr = derefStringOr(t.TradeTime, p.TradeTime)
-		}
-		tt, err := parseTradeDate(dateStr, timeStr, loc)
-		if err != nil {
-			return err
-		}
-		t.TradeDate, t.TradeTime = tt, timeStr
-	}
-	if p.MarginMode != nil {
-		t.MarginMode = *p.MarginMode
-	}
-	if p.Leverage != nil {
-		t.Leverage = *p.Leverage
-	}
-	if p.AssetMode != nil {
-		t.AssetMode = *p.AssetMode
-	}
-	if p.OrderType != nil {
-		t.OrderType = *p.OrderType
-	}
-	if p.Price != nil {
-		t.Price = *p.Price
-	}
-	if p.Quantity != nil {
-		t.Quantity = *p.Quantity
-	}
-	if p.StopPrice != nil {
-		t.StopPrice = *p.StopPrice
-	}
-	if p.TakeProfitEnabled != nil {
-		t.TakeProfitEnabled = *p.TakeProfitEnabled
-	}
-	if p.ReduceOnly != nil {
-		t.ReduceOnly = *p.ReduceOnly
-	}
-	if p.TakeProfit != nil {
-		t.TakeProfit = *p.TakeProfit
-	}
-	if p.StopLoss != nil {
-		t.StopLoss = *p.StopLoss
-	}
-	if p.IsShort != nil {
-		t.IsShort = *p.IsShort
-	}
-	if p.IsLong != nil {
-		t.IsLong = *p.IsLong
-	}
-	if p.Notes != nil {
-		t.Notes = *p.Notes
-	}
-	if p.Type != nil {
-		t.Type = *p.Type
-	}
-	if p.EntryPrice != nil {
-		t.EntryPrice = *p.EntryPrice
-	}
-	if p.ExitPrice != nil {
-		t.ExitPrice = *p.ExitPrice
-	}
-	if p.Fee != nil {
-		t.Fee = *p.Fee
-	}
-	if p.Indicators != nil {
-		t.Indicators = *p.Indicators
-	}
-	if p.Sentiment != nil {
-		t.Sentiment = *p.Sentiment
-	}
-
-	// Re-validate invariants after patch:
-	if t.IsShort == t.IsLong {
-		return errors.New("exactly one of isShort or isLong must be true")
-	}
-	if t.TakeProfitEnabled && (t.TakeProfit == nil || *t.TakeProfit <= 0) {
-		return errors.New("takeProfit must be provided and > 0 when enabled")
-	}
-	return nil
-}
+//func ApplyTradePatch(t *model.Trade, p model.UpdateTradePayload, loc *time.Location) error {
+//	if p.Exchange != nil {
+//		t.Exchange = *p.Exchange
+//	}
+//	if p.Symbol != nil {
+//		t.Symbol = *p.Symbol
+//	}
+//	if p.TradeDate != nil || p.TradeTime != nil {
+//		dateStr := t.TradeDate.Format("2006-01-02")
+//		timeStr := t.TradeTime
+//		//if p.TradeDate != nil && *p.TradeDate != nil {
+//		//	dateStr = **p.TradeDate
+//		//}
+//		if p.TradeTime != nil {
+//			//timeStr = derefStringOr(t.TradeTime, p.TradeTime)
+//		}
+//		tt, err := parseTradeDate(dateStr, timeStr, loc)
+//		if err != nil {
+//			return err
+//		}
+//		t.TradeDate, t.TradeTime = tt, timeStr
+//	}
+//	if p.MarginMode != nil {
+//		t.MarginMode = *p.MarginMode
+//	}
+//	if p.Leverage != nil {
+//		t.Leverage = *p.Leverage
+//	}
+//	if p.AssetMode != nil {
+//		t.AssetMode = *p.AssetMode
+//	}
+//	if p.OrderType != nil {
+//		t.OrderType = *p.OrderType
+//	}
+//	if p.Price != nil {
+//		t.Price = *p.Price
+//	}
+//	if p.Quantity != nil {
+//		t.Quantity = *p.Quantity
+//	}
+//	if p.StopPrice != nil {
+//		t.StopPrice = *p.StopPrice
+//	}
+//	if p.TakeProfitEnabled != nil {
+//		t.TakeProfitEnabled = *p.TakeProfitEnabled
+//	}
+//	if p.ReduceOnly != nil {
+//		t.ReduceOnly = *p.ReduceOnly
+//	}
+//	if p.TakeProfit != nil {
+//		t.TakeProfit = *p.TakeProfit
+//	}
+//	if p.StopLoss != nil {
+//		t.StopLoss = *p.StopLoss
+//	}
+//	if p.IsShort != nil {
+//		t.IsShort = *p.IsShort
+//	}
+//	if p.IsLong != nil {
+//		t.IsLong = *p.IsLong
+//	}
+//	if p.Notes != nil {
+//		t.Notes = *p.Notes
+//	}
+//	if p.Type != nil {
+//		t.Type = *p.Type
+//	}
+//	if p.EntryPrice != nil {
+//		t.EntryPrice = *p.EntryPrice
+//	}
+//	if p.ExitPrice != nil {
+//		t.ExitPrice = *p.ExitPrice
+//	}
+//	if p.Fee != nil {
+//		t.Fee = *p.Fee
+//	}
+//	if p.Indicators != nil {
+//		t.Indicators = *p.Indicators
+//	}
+//	if p.Sentiment != nil {
+//		t.Sentiment = *p.Sentiment
+//	}
+//
+//	// Re-validate invariants after patch:
+//	if t.IsShort == t.IsLong {
+//		return errors.New("exactly one of isShort or isLong must be true")
+//	}
+//	if t.TakeProfitEnabled && (t.TakeProfit == nil || *t.TakeProfit <= 0) {
+//		return errors.New("takeProfit must be provided and > 0 when enabled")
+//	}
+//	return nil
+//}
 
 func UpdateTradeHandler(logger *logrus.Entry) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

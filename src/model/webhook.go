@@ -11,6 +11,7 @@ type Webhook struct {
 	Type        string    `gorm:"size:100;not null" json:"type"`
 	Tickers     string    `json:"tickers"`
 	Token       string    `gorm:"size:255;uniqueIndex;not null" json:"token"`
+	Active      bool      `gorm:"not null;default:true" json:"active"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }

@@ -81,6 +81,10 @@ func StartServer(port string, logger *logrus.Entry) {
 		})
 
 		r.Post("/webhooks", handler.CreateWebhookHandler(logger))
+		r.Get("/webhooks", handler.ListWebhooksHandler(logger))
+		r.Put("/webhooks/{id}", handler.UpdateWebhookHandler(logger))
+		r.Delete("/webhooks/{id}", handler.DeleteWebhookHandler(logger))
+		r.Get("/webhook-alerts", handler.ListWebhookAlertsHandler(logger))
 
 	})
 	// Graceful server

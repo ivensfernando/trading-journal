@@ -9,11 +9,3 @@ type AlertPayload struct {
 	Time      string `json:"time"`
 	Interval  string `json:"interval"`
 }
-
-type CreateWebhookPayload struct {
-	Name        string `json:"name validate:required"`
-	Type        string `json:"type validate:required"` //crypto stocks futures
-	Description string `json:"description"`
-	Style       string `json:"style"`
-	Tickers     string `json:"tickers validate:required"`
-}
