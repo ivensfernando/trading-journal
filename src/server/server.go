@@ -9,7 +9,6 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
-	"vsC1Y2025V01/src/alerts"
 	"vsC1Y2025V01/src/auth"
 	"vsC1Y2025V01/src/handler"
 	"vsC1Y2025V01/src/lookup"
@@ -43,7 +42,9 @@ func StartServer(port string, logger *logrus.Entry) {
 
 	// Public routes
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("OK"))
+		if _, err := w.Write([]byte("OK")); err != nil {
+			logger.WithError(err).Error(" \"/health error")
+		}
 	})
 
 	r.Route("/lookup", func(r chi.Router) {
@@ -51,7 +52,7 @@ func StartServer(port string, logger *logrus.Entry) {
 		r.Get("/pairs", lookup.ListPairs(logger))
 	})
 
-	r.Post("/alerts", alerts.AlertHandler(logger))
+	r.Post("/trading/webhook/{token}", handler.AlertHandler(logger))
 	r.Post("/auth/register", handler.RegisterHandler(logger))
 	r.Post("/auth/login", handler.LoginHandler(logger))
 
@@ -78,6 +79,8 @@ func StartServer(port string, logger *logrus.Entry) {
 			r.Post("/{exchangeID}/test", handler.TestMexcConnectionHandler(logger))
 			r.Delete("/{exchangeID}", handler.DeleteUserExchangeHandler(logger))
 		})
+
+		r.Post("/webhooks", handler.CreateWebhookHandler(logger))
 
 	})
 	// Graceful server
