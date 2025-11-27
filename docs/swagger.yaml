@@ -75,10 +75,13 @@ paths:
         '201':
           description: User created
           content:
-            text/plain:
+            application/json:
               schema:
-                type: string
-                example: User created successfully
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
         '400':
           description: Invalid payload
         '500':
@@ -96,7 +99,8 @@ paths:
               $ref: '#/components/schemas/AuthPayload'
       responses:
         '200':
-          description: Login succeeded and JWT cookie set
+          description: |-
+            Login succeeded, a JWT cookie named `token` is set, and a status response is returned.
           content:
             application/json:
               schema:
@@ -340,7 +344,7 @@ paths:
         '404':
           description: Trade not found
 
-  /api/v1/user-exchanges/:
+  /api/v1/user-exchanges:
     post:
       tags: [User Exchanges]
       summary: Create or update an exchange credential for the user
@@ -409,7 +413,11 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TestConnectionResponse'
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
         '400':
           description: Invalid payload
         '401':
@@ -635,6 +643,22 @@ components:
         password:
           type: string
           format: password
+        email:
+          type: string
+          format: email
+        first_name:
+          type: string
+        last_name:
+          type: string
+        bio:
+          type: string
+        avatar_url:
+          type: string
+          format: uri
+        phone_number:
+          type: string
+        timezone:
+          type: string
     UserResponse:
       type: object
       properties:
@@ -761,7 +785,7 @@ components:
           format: date-time
     TradePayload:
       type: object
-      required: [symbol, tradeDate, tradeTime, marginMode, assetMode, orderType, price, size, stopPrice, takeProfitEnabled, reduceOnly, isShort, isLong, type, entryPrice, exitPrice]
+      required: [symbol, tradeDate, tradeTime, marginMode, assetMode, orderType, price, size, stopPrice, takeProfitEnabled, reduceOnly, isShort, isLong, contractType, entryPrice, exitPrice]
       properties:
         exchange:
           type: string
@@ -919,10 +943,9 @@ components:
     TestConnectionResponse:
       type: object
       properties:
-        success:
-          type: boolean
-        message:
+        status:
           type: string
+          example: ok
     CreateWebhookPayload:
       type: object
       required: [name, type]
@@ -961,6 +984,8 @@ components:
           type: string
         description:
           type: string
+        style:
+          type: string
         type:
           type: string
         tickers:
@@ -986,14 +1011,29 @@ components:
         sentiment:
           type: string
         quantity:
-          type: string
+          type: number
+          format: float
         price:
-          type: string
+          type: number
+          format: float
         time:
           type: string
           format: date-time
         interval:
           type: string
+        marketPosition:
+          type: string
+        prevMarketPosition:
+          type: string
+        marketPositionSize:
+          type: number
+          format: float
+        prevMarketPositionSize:
+          type: number
+          format: float
+        alert_time:
+          type: string
+          format: date-time
     WebhookAlert:
       type: object
       properties:
@@ -1017,6 +1057,19 @@ components:
           format: float
         interval:
           type: string
+        marketPosition:
+          type: string
+        prevMarketPosition:
+          type: string
+        marketPositionSize:
+          type: number
+          format: float
+        prevMarketPositionSize:
+          type: number
+          format: float
+        time:
+          type: string
+          format: date-time
         alert_time:
           type: string
           format: date-time
