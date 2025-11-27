@@ -43,6 +43,11 @@ func RegisterHandler(logger *logrus.Entry) http.HandlerFunc {
 		}
 
 		if err := repository.GetUserRepository().Create(&user); err != nil {
+			if errors.Is(err, repository.ErrUserAlreadyExists) {
+				logger.WithError(err).Warn("User already exists")
+				http.Error(w, "User already exists", http.StatusConflict)
+				return
+			}
 			logger.WithError(err).Error("User registration failed")
 			http.Error(w, "Registration error", http.StatusInternalServerError)
 			return

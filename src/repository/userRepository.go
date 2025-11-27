@@ -12,6 +12,7 @@ import (
 )
 
 var ErrUserNotFound = errors.New("user not found")
+var ErrUserAlreadyExists = errors.New("user already exists")
 
 type UserRepository interface {
 	Create(user *model.User) error
@@ -62,8 +63,20 @@ func (r *gormUserRepository) Create(user *model.User) error {
 	if db.DB == nil {
 		return errors.New("database connection is not initialized")
 	}
+	if err := db.DB.Create(user).Error; err != nil {
+		var errWithSQLState interface{ SQLState() string }
 
-	return db.DB.Create(user).Error
+		switch {
+		case errors.Is(err, gorm.ErrDuplicatedKey):
+			return ErrUserAlreadyExists
+		case errors.As(err, &errWithSQLState) && errWithSQLState.SQLState() == "23505":
+			return ErrUserAlreadyExists
+		default:
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (r *gormUserRepository) FindByUsername(username string) (*model.User, error) {

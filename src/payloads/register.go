@@ -11,3 +11,8 @@ type AuthPayload struct {
 	PhoneNumber string `json:"phone_number"`
 	Timezone    string `json:"timezone"`
 }
+
+//include ./scripts/env.sh
+//
+//APP_NAME=VSC1Y2025
+//MAIN_PATH = ./main.go
