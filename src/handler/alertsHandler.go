@@ -113,7 +113,7 @@ func AlertHandler(logger *logrus.Entry) http.HandlerFunc {
 
 		var payload payloads.AlertPayload
 		decoder := json.NewDecoder(r.Body)
-		decoder.DisallowUnknownFields()
+		//decoder.DisallowUnknownFields()
 		if err := decoder.Decode(&payload); err != nil {
 			logger.WithError(err).Warn("invalid alert payload")
 			http.Error(w, "Invalid payload", http.StatusBadRequest)
@@ -130,32 +130,36 @@ func AlertHandler(logger *logrus.Entry) http.HandlerFunc {
 			}
 			alertTime = &parsedTime
 		}
-
-		quantity, err := stringToFloat64(payload.Quantity)
-		if err != nil {
-			logger.WithError(err).Warn("invalid alert quantity")
-			http.Error(w, "quantity must be Float", http.StatusBadRequest)
-			return
-		}
-
-		price, err := stringToFloat64(payload.Price)
-		if err != nil {
-			logger.WithError(err).Warn("invalid alert price")
-			http.Error(w, "price must be Float", http.StatusBadRequest)
-			return
-		}
+		//
+		//quantity, err := stringToFloat64(payload.Quantity)
+		//if err != nil {
+		//	logger.WithError(err).Warn("invalid alert quantity")
+		//	http.Error(w, "quantity must be Float", http.StatusBadRequest)
+		//	return
+		//}
+		//
+		//price, err := stringToFloat64(payload.Price)
+		//if err != nil {
+		//	logger.WithError(err).Warn("invalid alert price")
+		//	http.Error(w, "price must be Float", http.StatusBadRequest)
+		//	return
+		//}
 
 		alert := model.WebhookAlert{
-			WebhookID:  webhook.ID,
-			UserID:     webhook.UserID,
-			Ticker:     payload.Ticker,
-			Action:     payload.Action,
-			Sentiment:  payload.Sentiment,
-			Quantity:   quantity,
-			Price:      price,
-			Interval:   payload.Interval,
-			AlertTime:  alertTime,
-			ReceivedAt: time.Now(),
+			WebhookID:              webhook.ID,
+			UserID:                 webhook.UserID,
+			Ticker:                 payload.Ticker,
+			Action:                 payload.Action,
+			Sentiment:              payload.Sentiment,
+			Quantity:               payload.Quantity,
+			Price:                  payload.Price,
+			Interval:               payload.Interval,
+			MarketPosition:         payload.MarketPosition,
+			PrevMarketPosition:     payload.PrevMarketPosition,
+			MarketPositionSize:     payload.MarketPositionSize,
+			PrevMarketPositionSize: payload.PrevMarketPositionSize,
+			AlertTime:              alertTime,
+			ReceivedAt:             time.Now(),
 		}
 
 		if err := repository.GetWebhookAlertRepository().Create(&alert); err != nil {

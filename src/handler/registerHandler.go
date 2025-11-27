@@ -7,20 +7,16 @@ import (
 	"time"
 	"vsC1Y2025V01/src/auth"
 	"vsC1Y2025V01/src/model"
+	"vsC1Y2025V01/src/payloads"
 	"vsC1Y2025V01/src/repository"
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/bcrypt"
 )
 
-type AuthPayload struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-}
-
 func RegisterHandler(logger *logrus.Entry) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var payload AuthPayload
+		var payload payloads.AuthPayload
 		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 			http.Error(w, "Invalid payload", http.StatusBadRequest)
 			return
@@ -45,8 +41,11 @@ func RegisterHandler(logger *logrus.Entry) http.HandlerFunc {
 			return
 		}
 
+		w.Header().Set("Content-Type", "application/json")
+		//w.WriteHeader(http.StatusOK)
 		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte("User created successfully"))
+		//w.Write([]byte("User created successfully"))
+		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 	}
 }
 
@@ -54,7 +53,7 @@ func LoginHandler(logger *logrus.Entry) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		logger.Info("Login attempt received")
 
-		var payload AuthPayload
+		var payload payloads.AuthPayload
 		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 			logger.WithError(err).Warn("Failed to decode login payload")
 			http.Error(w, "Invalid login", http.StatusBadRequest)

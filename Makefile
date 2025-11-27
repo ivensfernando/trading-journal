@@ -1,6 +1,7 @@
 include ./scripts/env.sh
 
 APP_NAME=VSC1Y2025
+MAIN_PATH = ./main.go
 
 run:
 	@echo "Running the application..."
@@ -31,7 +32,7 @@ build_server:
 	go build -o $(BINARY_NAME) ./...
 
 run_server:
-	go run .
+	go run $(MAIN_PATH)
 
 
 
