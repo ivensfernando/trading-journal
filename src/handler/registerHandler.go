@@ -29,10 +29,17 @@ func RegisterHandler(logger *logrus.Entry) http.HandlerFunc {
 			return
 		}
 		user := model.User{
-			Username:  payload.Username,
-			Password:  string(hash),
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
+			Username:    payload.Username,
+			Password:    string(hash),
+			Email:       payload.Email,
+			FirstName:   payload.FirstName,
+			LastName:    payload.LastName,
+			Bio:         payload.Bio,
+			AvatarURL:   payload.AvatarURL,
+			PhoneNumber: payload.PhoneNumber,
+			Timezone:    payload.Timezone,
+			CreatedAt:   time.Now(),
+			UpdatedAt:   time.Now(),
 		}
 
 		if err := repository.GetUserRepository().Create(&user); err != nil {

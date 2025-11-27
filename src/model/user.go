@@ -12,7 +12,7 @@ type User struct {
 	Bio         string    `gorm:"size:1024" json:"bio"`
 	AvatarURL   string    `gorm:"size:512" json:"avatar_url"`
 	PhoneNumber string    `gorm:"size:100" json:"phone_number"`
-	Timezone    time.Time `json:"timezone"`
+	Timezone    string    `json:"timezone"`
 	LastLogin   time.Time `json:"last_login"`
 	LastSeen    time.Time `json:"last_seen"`
 	CreatedAt   time.Time
