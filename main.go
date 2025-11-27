@@ -18,6 +18,7 @@ var (
 func initLog() {
 	// Only log the warning severity or above.
 	logrus.SetLevel(logrus.DebugLevel)
+	logrus.SetOutput(os.Stdout)
 
 	log = logrus.WithFields(logrus.Fields{
 		"app": APP_NAME,
