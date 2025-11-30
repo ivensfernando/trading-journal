@@ -19,11 +19,6 @@ func main() {
 	secret := os.Getenv("KUCOIN_API_SECRET")
 	passphrase := os.Getenv("KUCOIN_API_PASSPHRASE")
 
-	if key == "" || secret == "" || passphrase == "" {
-		logger.GetLogger().Error("missing one or more KuCoin credentials (KUCOIN_API_KEY, KUCOIN_API_SECRET, KUCOIN_API_PASSPHRASE)")
-		return
-	}
-
 	// Set specific options, others will fall back to default values
 	httpOption := types.NewTransportOptionBuilder().
 		SetKeepAlive(true).

@@ -89,6 +89,12 @@ Run the full test suite:
 go test ./...
 ```
 
+## KuCoin SDK sample
+To run the KuCoin SDK example in `cmd/main.go`, set `KUCOIN_API_KEY`, `KUCOIN_API_SECRET`,
+and `KUCOIN_API_PASSPHRASE` (the plaintext passphrase you configured when creating the
+API key). See [docs/kucoin.md](docs/kucoin.md) for troubleshooting `400004` (`Invalid
+KC-API-PASSPHRASE`) responses.
+
 ## Run the migration
 ```bash
 export DATABASE_URL="postgres://user:password@localhost:5432/yourdb?sslmode=disable"
