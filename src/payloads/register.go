@@ -14,5 +14,5 @@ type AuthPayload struct {
 
 //include ./scripts/env.sh
 //
-//APP_NAME=VSC1Y2025
+//APP_NAME=VSC1Y2025 nphQm71IPQ1a%1B$
 //MAIN_PATH = ./main.go

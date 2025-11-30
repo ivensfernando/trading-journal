@@ -41,3 +41,17 @@ type T struct {
 	Time     string `json:"time"`
 	Interval string `json:"interval"`
 }
+
+//{
+//"ticker": {{ticker}},
+//"exchange": {{exchange}},
+//"action": "buy",
+//"type": "limit",
+//"price": {{close}},
+//"message": "entry",
+//"long SL": {{plot("Long SL")}},
+//"long TP": {{plot("Long TP")}},
+//"passphrase": "abcdefg",
+//"subaccount": "Testing",
+//"chart_url" : "https://www.tradingview.com/chart/jbSLq0oe"
+//}
