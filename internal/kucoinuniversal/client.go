@@ -46,8 +46,8 @@ type Client struct {
 
 // NewClient builds a Client using the provided configuration.
 func NewClient(cfg Config) (*Client, error) {
-	if cfg.APIKey == "" || cfg.APISecret == "" || cfg.APIPassphrase == "" {
-		return nil, errors.New("api key, secret, and passphrase are required")
+	if cfg.APIKey == "" || cfg.APISecret == "" {
+		return nil, errors.New("api key and secret are required")
 	}
 
 	client := cfg.HTTPClient
@@ -67,7 +67,11 @@ func NewClient(cfg Config) (*Client, error) {
 
 	keyVersion := cfg.KeyVersion
 	if keyVersion == "" {
-		keyVersion = "2"
+		keyVersion = "3"
+	}
+
+	if cfg.APIPassphrase == "" && keyVersion != "3" {
+		return nil, errors.New("api passphrase is required for key version 2")
 	}
 
 	return &Client{
@@ -344,13 +348,18 @@ func (c *Client) signRequest(req *http.Request, endpoint string, body []byte) {
 	mac.Write([]byte(signPayload))
 	signature := base64.StdEncoding.EncodeToString(mac.Sum(nil))
 
-	mac.Reset()
-	mac.Write([]byte(c.apiPassphrase))
-	passphrase := base64.StdEncoding.EncodeToString(mac.Sum(nil))
+	passphrase := c.apiPassphrase
+	if passphrase != "" {
+		mac := hmac.New(sha256.New, []byte(c.apiSecret))
+		mac.Write([]byte(c.apiPassphrase))
+		passphrase = base64.StdEncoding.EncodeToString(mac.Sum(nil))
+	}
 
 	req.Header.Set("KC-API-SIGN", signature)
 	req.Header.Set("KC-API-TIMESTAMP", timestamp)
 	req.Header.Set("KC-API-KEY", c.apiKey)
-	req.Header.Set("KC-API-PASSPHRASE", passphrase)
+	if passphrase != "" {
+		req.Header.Set("KC-API-PASSPHRASE", passphrase)
+	}
 	req.Header.Set("KC-API-KEY-VERSION", c.keyVersion)
 }

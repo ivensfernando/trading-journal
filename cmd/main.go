@@ -13,8 +13,12 @@ func main() {
 	apiKey := os.Getenv("KUCOIN_API_KEY")
 	apiSecret := os.Getenv("KUCOIN_API_SECRET")
 	apiPassphrase := os.Getenv("KUCOIN_API_PASSPHRASE")
+	apiKeyVersion := os.Getenv("KUCOIN_API_KEY_VERSION")
+	if apiKeyVersion == "" {
+		apiKeyVersion = "3"
+	}
 
-	if apiKey == "" || apiSecret == "" || apiPassphrase == "" {
+	if apiKey == "" || apiSecret == "" {
 		log.Fatal("KuCoin credentials are not set in the environment variables.")
 	}
 
@@ -22,6 +26,7 @@ func main() {
 		APIKey:        apiKey,
 		APISecret:     apiSecret,
 		APIPassphrase: apiPassphrase,
+		KeyVersion:    apiKeyVersion,
 	})
 	if err != nil {
 		log.Fatalf("Failed to initialize KuCoin client: %v", err)

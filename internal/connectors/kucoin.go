@@ -13,11 +13,12 @@ type KucoinConnector struct {
 	client *kucoin.Client
 }
 
-func NewKucoinConnector(apiKey, apiSecret, apiPassphrase string) (*KucoinConnector, error) {
+func NewKucoinConnector(apiKey, apiSecret, apiPassphrase, keyVersion string) (*KucoinConnector, error) {
 	client, err := kucoin.NewClient(kucoin.Config{
 		APIKey:        apiKey,
 		APISecret:     apiSecret,
 		APIPassphrase: apiPassphrase,
+		KeyVersion:    keyVersion,
 	})
 	if err != nil {
 		return nil, err
