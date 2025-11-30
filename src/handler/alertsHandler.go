@@ -121,8 +121,8 @@ func AlertHandler(logger *logrus.Entry) http.HandlerFunc {
 		}
 
 		var alertTime *time.Time
-		if payload.Time != "" {
-			parsedTime, err := time.Parse(time.RFC3339, payload.Time)
+		if payload.AlertTime != "" {
+			parsedTime, err := time.Parse(time.RFC3339, payload.AlertTime)
 			if err != nil {
 				logger.WithError(err).Warn("invalid alert Time")
 				http.Error(w, "time must be RFC3339 formatted", http.StatusBadRequest)
@@ -130,20 +130,34 @@ func AlertHandler(logger *logrus.Entry) http.HandlerFunc {
 			}
 			alertTime = &parsedTime
 		}
-		//
-		//quantity, err := stringToFloat64(payload.Quantity)
-		//if err != nil {
-		//	logger.WithError(err).Warn("invalid alert quantity")
-		//	http.Error(w, "quantity must be Float", http.StatusBadRequest)
-		//	return
-		//}
-		//
-		//price, err := stringToFloat64(payload.Price)
-		//if err != nil {
-		//	logger.WithError(err).Warn("invalid alert price")
-		//	http.Error(w, "price must be Float", http.StatusBadRequest)
-		//	return
-		//}
+
+		quantity, err := stringToFloat64(payload.Qty)
+		if err != nil {
+			logger.WithError(err).Warn("invalid alert quantity")
+			http.Error(w, "quantity must be Float", http.StatusBadRequest)
+			return
+		}
+
+		price, err := stringToFloat64(payload.Price)
+		if err != nil {
+			logger.WithError(err).Warn("invalid alert price")
+			http.Error(w, "price must be Float", http.StatusBadRequest)
+			return
+		}
+
+		marketPositionSize, err := stringToFloat64(payload.MarketPositionSize)
+		if err != nil {
+			logger.WithError(err).Warn("invalid alert Market Position Size")
+			http.Error(w, "marketPositionSize must be Float", http.StatusBadRequest)
+			return
+		}
+
+		prevMarketPositionSize, err := stringToFloat64(payload.PrevMarketPositionSize)
+		if err != nil {
+			logger.WithError(err).Warn("invalid alert Prev Market Position Size")
+			http.Error(w, "prevMarketPositionSize must be Float", http.StatusBadRequest)
+			return
+		}
 
 		alert := model.WebhookAlert{
 			WebhookID:              webhook.ID,
@@ -151,13 +165,13 @@ func AlertHandler(logger *logrus.Entry) http.HandlerFunc {
 			Ticker:                 payload.Ticker,
 			Action:                 payload.Action,
 			Sentiment:              payload.Sentiment,
-			Quantity:               payload.Quantity,
-			Price:                  payload.Price,
+			Quantity:               quantity,
+			Price:                  price,
 			Interval:               payload.Interval,
 			MarketPosition:         payload.MarketPosition,
 			PrevMarketPosition:     payload.PrevMarketPosition,
-			MarketPositionSize:     payload.MarketPositionSize,
-			PrevMarketPositionSize: payload.PrevMarketPositionSize,
+			MarketPositionSize:     marketPositionSize,
+			PrevMarketPositionSize: prevMarketPositionSize,
 			AlertTime:              alertTime,
 			ReceivedAt:             time.Now(),
 		}
