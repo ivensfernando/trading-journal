@@ -1,3 +1,5 @@
+include ./scripts/env.sh
+#//APP_NAME=VSC1Y2025
 APP_NAME ?= trading-journal
 BIN_DIR ?= bin
 BINARY_NAME ?= $(BIN_DIR)/$(APP_NAME)
@@ -13,7 +15,10 @@ help: ## Show available commands
 	awk 'BEGIN {FS = ":.*##"} /^[a-zA-Z0-9_-]+:.*##/ {printf "  %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST) | sort
 
 run: ## Run the KuCoin example (cmd/main.go)
-	go run ./cmd/main.go
+	go run ./cmd/kucoin/main.go
+
+balances: ## Run the KuCoin example (cmd/main.go)
+	go run ./cmd/kucoin/balances.go
 
 run_server: ## Run the HTTP server (main.go)
 	APP_NAME=$(APP_NAME) PORT=$(PORT) go run $(MAIN_PATH)

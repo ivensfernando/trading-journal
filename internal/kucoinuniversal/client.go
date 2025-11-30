@@ -399,6 +399,69 @@ func (c *Client) GetSpotAccounts(ctx context.Context) ([]AccountBalance, error) 
 	return rsp.Data, nil
 }
 
+// FuturesAccountOverview mirrors the summary returned by the futures account overview endpoint.
+type FuturesAccountOverview struct {
+	AccountEquity    string `json:"accountEquity"`
+	AvailableBalance string `json:"availableBalance"`
+	Currency         string `json:"currency"`
+}
+
+// GetFuturesAccountOverview returns balances for the specified futures currency.
+func (c *Client) GetFuturesAccountOverview(ctx context.Context, currency string) (*FuturesAccountOverview, error) {
+	query := url.Values{}
+	if currency != "" {
+		query.Set("currency", currency)
+	}
+
+	payload, err := c.doRequest(ctx, http.MethodGet, c.futuresBaseURL, "/api/v1/account-overview", query, nil, true)
+	if err != nil {
+		return nil, err
+	}
+
+	var rsp struct {
+		Code string                 `json:"code"`
+		Data FuturesAccountOverview `json:"data"`
+	}
+
+	if err := json.Unmarshal(payload, &rsp); err != nil {
+		return nil, fmt.Errorf("failed to decode futures account overview: %w", err)
+	}
+
+	return &rsp.Data, nil
+}
+
+// MarginAccount mirrors the cross-margin account response.
+type MarginAccount struct {
+	Accounts []struct {
+		AvailableBalance string `json:"availableBalance"`
+		Currency         string `json:"currency"`
+		HoldBalance      string `json:"holdBalance"`
+		Liability        string `json:"liability"`
+		MaxBorrowSize    string `json:"maxBorrowSize"`
+		TotalBalance     string `json:"totalBalance"`
+	} `json:"accounts"`
+	DebtRatio string `json:"debtRatio"`
+}
+
+// GetMarginAccount returns cross-margin balances.
+func (c *Client) GetMarginAccount(ctx context.Context) (*MarginAccount, error) {
+	payload, err := c.doRequest(ctx, http.MethodGet, c.spotBaseURL, "/api/v1/margin/account", nil, nil, true)
+	if err != nil {
+		return nil, err
+	}
+
+	var rsp struct {
+		Code string         `json:"code"`
+		Data *MarginAccount `json:"data"`
+	}
+
+	if err := json.Unmarshal(payload, &rsp); err != nil {
+		return nil, fmt.Errorf("failed to decode margin account: %w", err)
+	}
+
+	return rsp.Data, nil
+}
+
 // SpotOrderRequest represents the payload for placing spot orders.
 type SpotOrderRequest struct {
 	ClientOID string  `json:"clientOid,omitempty"`

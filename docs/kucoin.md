@@ -18,8 +18,14 @@ Confirm the following before running `make run`:
    export KUCOIN_API_KEY="<api-key>"
    export KUCOIN_API_SECRET="<api-secret>"
    export KUCOIN_API_PASSPHRASE="<api-passphrase>"  # plaintext value
+   # Only for legacy API key version 2
+   # export KUCOIN_API_KEY_VERSION=2
    make run
    ```
+
+   If your key is version 2, the sample automatically hashes the passphrase
+   before sending the request (the API expects the base64-encoded HMAC-SHA256
+   digest of the passphrase using your API secret).
 
 If you still receive `Invalid KC-API-PASSPHRASE`, rotate the API key in KuCoin,
 set the new values, and try again.
