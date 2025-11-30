@@ -2,94 +2,63 @@ package main
 
 import (
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/base64"
-	"fmt"
-	kucoin "github.com/Kucoin/kucoin-universal-sdk"
-	"log"
+	"github.com/Kucoin/kucoin-universal-sdk/sdk/golang/pkg/api"
+	"github.com/Kucoin/kucoin-universal-sdk/sdk/golang/pkg/common/logger"
+	"github.com/Kucoin/kucoin-universal-sdk/sdk/golang/pkg/generate/spot/market"
+	"github.com/Kucoin/kucoin-universal-sdk/sdk/golang/pkg/types"
 	"os"
 )
 
 func main() {
-	apiKey := os.Getenv("KUCOIN_API_KEY")
-	apiSecret := os.Getenv("KUCOIN_API_SECRET")
-	apiPassphrase := os.Getenv("KUCOIN_API_PASSPHRASE")
-	apiKeyVersion := os.Getenv("KUCOIN_API_KEY_VERSION")
-	if apiKeyVersion == "" {
-		apiKeyVersion = "3"
-	}
+	// Use the default logger or supply your custom logger
+	defaultLogger := logger.NewDefaultLogger()
+	logger.SetLogger(defaultLogger)
 
-	//encryptPassphrase := true
-	//if v := os.Getenv("KUCOIN_API_PASSPHRASE_ENCRYPTED"); v != "" {
-	//	parsed, err := strconv.ParseBool(v)
-	//	if err != nil {
-	//		log.Fatalf("Invalid KUCOIN_API_PASSPHRASE_ENCRYPTED value: %v", err)
-	//	}
-	//	encryptPassphrase = parsed
-	//}
+	// Retrieve API secret information from environment variables
+	key := os.Getenv("KUCOIN_API_KEY")
+	secret := os.Getenv("KUCOIN_API_SECRET")
+	passphrase := os.Getenv("KUCOIN_API_PASSPHRASE")
 
-	apiP := KucoinSignPassphrase(apiSecret, apiPassphrase)
+	// Set specific options, others will fall back to default values
+	httpOption := types.NewTransportOptionBuilder().
+		SetKeepAlive(true).
+		SetMaxIdleConnsPerHost(10).
+		Build()
 
-	if apiKey == "" || apiSecret == "" {
-		log.Fatal("KuCoin credentials are not set in the environment variables.")
-	}
+	// Create a client using the specified options
+	option := types.NewClientOptionBuilder().
+		WithKey(key).
+		WithSecret(secret).
+		WithPassphrase(passphrase).
+		WithSpotEndpoint(types.GlobalApiEndpoint).
+		WithFuturesEndpoint(types.GlobalFuturesApiEndpoint).
+		WithBrokerEndpoint(types.GlobalBrokerApiEndpoint).
+		WithTransportOption(httpOption).
+		Build()
+	client := api.NewClient(option)
 
-	client, err := kucoin.NewClient(kucoin.Config{
-		APIKey:        apiKey,
-		APISecret:     apiSecret,
-		APIPassphrase: apiP,
-		KeyVersion:    apiKeyVersion,
-	})
+	// Get the Restful Service
+	kuCoinRestService := client.RestService()
+
+	rest, err := kuCoinRestService.GetAccountService().GetAccountAPI().GetAccountInfo(context.Background())
 	if err != nil {
-		log.Fatalf("Failed to initialize KuCoin client: %v", err)
+		logger.GetLogger().Errorf("failed to get account info: %v", err)
 	}
+	logger.GetLogger().Infof("rest=%+v", rest)
 
-	ctx := context.Background()
+	// Get Spot Market API
+	spotMarketAPI := kuCoinRestService.GetSpotService().GetMarketAPI()
 
-	serverTime, err := client.ServerTime(ctx)
+	request := market.NewGetPartOrderBookReqBuilder().
+		SetSymbol("BTC-USDT").
+		SetSize("20").
+		Build()
+
+	// Query for part orderbook depth data. (aggregated by price)
+	response, err := spotMarketAPI.GetPartOrderBook(request, context.Background())
 	if err != nil {
-		log.Fatalf("Failed to fetch server time: %v", err)
+		logger.GetLogger().Errorf("failed to get part order book: %v", err)
+		return
 	}
-	fmt.Printf("Connected to KuCoin. Server time: %v\n", serverTime)
-
-	if summary, err := client.GetAccountSummaryInfo(ctx); err == nil && summary != nil {
-		fmt.Printf("User %s (level %s) trade enabled: %t, transfer enabled: %t\n", summary.UID, summary.UserLevel, summary.TradeEnabled, summary.TransferEnabled)
-	}
-
-	accounts, err := client.GetSpotAccounts(ctx)
-	if err != nil {
-		log.Fatalf("Failed to fetch wallet balances: %v", err)
-	}
-
-	fmt.Println("Spot Wallet Balances:")
-	for _, account := range accounts {
-		fmt.Printf("- %s (%s): balance=%s, available=%s, holds=%s\n", account.Currency, account.Type, account.Balance, account.Available, account.Holds)
-	}
-
-	if currency := os.Getenv("KUCOIN_DEPOSIT_CURRENCY"); currency != "" {
-		addresses, err := client.GetDepositAddresses(ctx, currency, os.Getenv("KUCOIN_DEPOSIT_CHAIN"))
-		if err != nil {
-			log.Fatalf("Failed to fetch deposit addresses: %v", err)
-		}
-		fmt.Printf("Deposit addresses for %s:\n", currency)
-		for _, addr := range addresses {
-			fmt.Printf("- %s on %s (memo: %s)\n", addr.Address, addr.Chain, addr.Memo)
-		}
-	}
-}
-
-func EncryptPassphrase(secret, passphrase string) (string, error) {
-	h := hmac.New(sha256.New, []byte(secret))
-	if _, err := h.Write([]byte(passphrase)); err != nil {
-		return "", err
-	}
-	return base64.StdEncoding.EncodeToString(h.Sum(nil)), nil
-}
-
-func KucoinSignPassphrase(passphrase, secret string) string {
-	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write([]byte(passphrase))
-	signature := mac.Sum(nil)
-	return base64.StdEncoding.EncodeToString(signature)
+	logger.GetLogger().Infof("time=%d, sequence=%s, bids=%v, asks=%v", response.Time, response.Sequence, response.Bids, response.Asks)
 }
