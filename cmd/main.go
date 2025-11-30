@@ -27,9 +27,21 @@ func main() {
 		log.Fatalf("Failed to initialize KuCoin client: %v", err)
 	}
 
-	serverTime, err := client.ServerTime(context.Background())
+	ctx := context.Background()
+
+	serverTime, err := client.ServerTime(ctx)
 	if err != nil {
 		log.Fatalf("Failed to fetch server time: %v", err)
 	}
 	fmt.Printf("Connected to KuCoin. Server time: %v\n", serverTime)
+
+	accounts, err := client.GetSpotAccounts(ctx)
+	if err != nil {
+		log.Fatalf("Failed to fetch wallet balances: %v", err)
+	}
+
+	fmt.Println("Spot Wallet Balances:")
+	for _, account := range accounts {
+		fmt.Printf("- %s (%s): balance=%s, available=%s, holds=%s\n", account.Currency, account.Type, account.Balance, account.Available, account.Holds)
+	}
 }
