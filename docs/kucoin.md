@@ -24,8 +24,20 @@ Confirm the following before running `make run`:
    ```
 
    If your key is version 2, the sample automatically hashes the passphrase
-   before sending the request (the API expects the base64-encoded HMAC-SHA256
-   digest of the passphrase using your API secret).
+   before sending the request.
+
+### How the passphrase is signed
+- KuCoin expects the **KC-API-PASSPHRASE** header to be the Base64-encoded
+  HMAC-SHA256 digest of your API passphrase using your **API secret** as the
+  key.
+- The SDK performs this hashing when `EncryptPassphrase` is `true` (the
+  default). If you supply a pre-hashed value, set the environment variable
+  `KUCOIN_ENCRYPT_PASSPHRASE=false` so the client sends the value as-is.
+- The hashed passphrase must be generated with the same request timestamp you
+  send in **KC-API-TIMESTAMP**. For GET/DELETE requests, include query params in
+  the path (request body is empty). For POST requests, sign the JSON body with
+  no extra spaces and use the raw, non-URL-encoded path when building the
+  signature.
 
 If you still receive `Invalid KC-API-PASSPHRASE`, rotate the API key in KuCoin,
 set the new values, and try again.
