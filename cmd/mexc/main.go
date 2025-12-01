@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-
 	"vsC1Y2025V01/internal/connectors"
 )
 

@@ -1,6 +1,6 @@
 include ./scripts/env.sh
 
-	APP_NAME ?= trading-journal
+APP_NAME ?= trading-journal
 BIN_DIR ?= bin
 BINARY_NAME ?= $(BIN_DIR)/$(APP_NAME)
 KUCOIN_BINARY ?= $(BIN_DIR)/kucoin-example

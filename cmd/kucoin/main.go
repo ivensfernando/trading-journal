@@ -1,52 +1,94 @@
 package main
 
 import (
+	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
-	"strconv"
-
-	ccxt "github.com/ccxt/ccxt/go/v4"
-	"vsC1Y2025V01/internal/connectors"
+	"time"
 )
+
+// COLOCA TUAS CREDENCIAIS AQUI (NÃO COMMITA ISSO NO GIT)
+const (
+	// a que você digitou ao criar a API, NÃO o trading password
+	apiBaseURL = "https://api.kucoin.com"
+)
+
+// KC-API-PASSPHRASE = base64( HMAC_SHA256(apiSecret, apiPassphrase) )
+func signPassphrase(secret, passphrase string) string {
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(passphrase))
+	hash := mac.Sum(nil)
+	return base64.StdEncoding.EncodeToString(hash)
+}
+
+// KC-API-SIGN = base64( HMAC_SHA256(apiSecret, timestamp+method+endpoint+body) )
+func signRequest(secret, timestamp, method, endpoint, body string) string {
+	prehash := timestamp + method + endpoint + body
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(prehash))
+	hash := mac.Sum(nil)
+	return base64.StdEncoding.EncodeToString(hash)
+}
 
 func main() {
 	apiKey := os.Getenv("KUCOIN_API_KEY")
 	apiSecret := os.Getenv("KUCOIN_API_SECRET")
-	passphrase := os.Getenv("KUCOIN_API_PASSPHRASE")
+	apiPassphrase := os.Getenv("KUCOIN_API_PASSPHRASE")
 	keyVersion := os.Getenv("KUCOIN_API_KEY_VERSION")
 
-	if apiKey == "" || apiSecret == "" || passphrase == "" {
+	log.Println(apiKey)
+	log.Println(apiSecret)
+	log.Println(apiPassphrase)
+
+	if apiKey == "" || apiSecret == "" || apiPassphrase == "" {
 		log.Fatal("environment variables KUCOIN_API_KEY, KUCOIN_API_SECRET and KUCOIN_API_PASSPHRASE are required")
 	}
 
-	credentials := ccxt.Credentials{
-		ApiKey:     apiKey,
-		Secret:     apiSecret,
-		Passphrase: passphrase,
-	}
+	// Exemplo: GET /api/v1/accounts (sem body)
+	method := http.MethodGet
+	endpoint := "/api/v1/accounts"
+	bodyStr := "" // GET sem body
 
-	if keyVersion != "" {
-		version, err := strconv.Atoi(keyVersion)
-		if err != nil {
-			log.Fatalf("invalid KUCOIN_API_KEY_VERSION: %v", err)
-		}
-		credentials.KeyVersion = version
-	}
+	// timestamp em ms (string)
+	timestamp := fmt.Sprintf("%d", time.Now().UnixNano()/int64(time.Millisecond))
 
-	connector := connectors.NewKucoinConnector(credentials)
+	// assinatura da request
+	signature := signRequest(apiSecret, timestamp, method, endpoint, bodyStr)
 
-	if err := connector.TestConnection(); err != nil {
-		log.Fatalf("failed to reach KuCoin: %v", err)
-	}
+	// passphrase criptografada (V3)
+	encryptedPassphrase := signPassphrase(apiSecret, apiPassphrase)
 
-	balances, err := connector.GetAccountBalances()
+	// monta a request HTTP
+	req, err := http.NewRequest(method, apiBaseURL+endpoint, bytes.NewBuffer([]byte(bodyStr)))
 	if err != nil {
-		log.Fatalf("could not fetch balances: %v", err)
+		panic(err)
 	}
 
-	fmt.Println("== KuCoin balances ==")
-	for currency, amount := range balances {
-		fmt.Printf("%-12s %f\n", currency, amount)
+	// headers exigidos pela KuCoin
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("KC-API-KEY", apiKey)
+	req.Header.Set("KC-API-SIGN", signature)
+	req.Header.Set("KC-API-TIMESTAMP", timestamp)
+	req.Header.Set("KC-API-PASSPHRASE", encryptedPassphrase)
+	req.Header.Set("KC-API-KEY-VERSION", keyVersion) // sua chave é V3
+
+	// executa a requisição
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		panic(err)
 	}
+	defer resp.Body.Close()
+
+	respBody, _ := io.ReadAll(resp.Body)
+
+	fmt.Println("Status:", resp.Status)
+	fmt.Println("Body:", string(respBody))
+
 }
