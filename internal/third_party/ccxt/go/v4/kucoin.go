@@ -20,6 +20,7 @@ type Credentials struct {
 	ApiKey     string
 	Secret     string
 	Passphrase string
+	KeyVersion int
 }
 
 // KucoinClient is a trimmed-down client inspired by the ccxt KuCoin connector.
@@ -231,16 +232,24 @@ func (k *KucoinClient) applyAuth(method, path string, body []byte, headers http.
 		return err
 	}
 
-	passphrase, err := k.sign(k.credentials.Passphrase)
-	if err != nil {
-		return err
+	passphrase := k.credentials.Passphrase
+	if k.credentials.KeyVersion == 0 || k.credentials.KeyVersion == 2 {
+		var err error
+		passphrase, err = k.sign(k.credentials.Passphrase)
+		if err != nil {
+			return err
+		}
 	}
 
 	headers.Set("KC-API-KEY", k.credentials.ApiKey)
 	headers.Set("KC-API-SIGN", signature)
 	headers.Set("KC-API-TIMESTAMP", timestamp)
 	headers.Set("KC-API-PASSPHRASE", passphrase)
-	headers.Set("KC-API-KEY-VERSION", "2")
+	if k.credentials.KeyVersion != 1 {
+		headers.Set("KC-API-KEY-VERSION", "2")
+	} else {
+		headers.Set("KC-API-KEY-VERSION", "1")
+	}
 
 	return nil
 }
