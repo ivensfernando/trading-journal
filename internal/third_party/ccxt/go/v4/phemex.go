@@ -29,6 +29,13 @@ type PhemexClient struct {
 }
 
 const (
+	// defaultPhemexUserAgent identifies the lightweight ccxt-based client without
+	// tying it to the hosting application so requests look like a generic SDK
+	// consumer instead of a specific project build.
+	defaultPhemexUserAgent = "ccxt-go-phemex/1.0"
+)
+
+const (
 	// DefaultPhemexBaseURL points to the production REST API.
 	DefaultPhemexBaseURL = "https://api.phemex.com"
 	// TestnetPhemexBaseURL points to the Phemex testnet REST API.
@@ -140,18 +147,26 @@ func (p *PhemexClient) doRequest(ctx context.Context, method, path, body string,
 		return nil, fmt.Errorf("build request: %w", err)
 	}
 
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", defaultPhemexUserAgent)
+
 	if signed {
 		if p.credentials.ApiKey == "" || p.credentials.Secret == "" {
 			return nil, fmt.Errorf("missing API credentials for signed request")
 		}
 
 		expires := time.Now().Add(60 * time.Second).Unix()
-		signaturePayload := path + strconv.FormatInt(expires, 10) + body
+		signaturePath := strings.Replace(path, "?", "", 1)
+		signaturePayload := signaturePath + strconv.FormatInt(expires, 10) + body
 		signature := p.sign(signaturePayload)
 
 		req.Header.Set("x-phemex-access-token", p.credentials.ApiKey)
 		req.Header.Set("x-phemex-request-signature", signature)
 		req.Header.Set("x-phemex-request-expiry", strconv.FormatInt(expires, 10))
+	}
+
+	if body != "" || signed {
+		req.Header.Set("Content-Type", "application/json")
 	}
 
 	resp, err := p.httpClient.Do(req)
