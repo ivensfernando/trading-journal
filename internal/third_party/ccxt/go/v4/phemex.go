@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -27,20 +28,39 @@ type PhemexClient struct {
 	httpClient  *http.Client
 }
 
-const phemexBaseURL = "https://api.phemex.com"
+const (
+	// DefaultPhemexBaseURL points to the production REST API.
+	DefaultPhemexBaseURL = "https://api.phemex.com"
+	// TestnetPhemexBaseURL points to the Phemex testnet REST API.
+	TestnetPhemexBaseURL = "https://testnet-api.phemex.com"
+)
 
 // NewPhemexClient builds a client configured with the provided credentials.
 func NewPhemexClient(credentials PhemexCredentials) *PhemexClient {
+	return NewPhemexClientWithBaseURL(credentials, DefaultPhemexBaseURL)
+}
+
+// NewPhemexClientWithBaseURL builds a client that targets a custom base URL (e.g., testnet).
+func NewPhemexClientWithBaseURL(credentials PhemexCredentials, baseURL string) *PhemexClient {
+	if baseURL == "" {
+		baseURL = DefaultPhemexBaseURL
+	}
+
 	return &PhemexClient{
 		credentials: credentials,
-		baseURL:     phemexBaseURL,
+		baseURL:     baseURL,
 		httpClient:  &http.Client{Timeout: 15 * time.Second},
 	}
 }
 
+// BaseURL returns the configured REST API host.
+func (p *PhemexClient) BaseURL() string {
+	return p.baseURL
+}
+
 // Ping checks connectivity using the public ping endpoint.
 func (p *PhemexClient) Ping(ctx context.Context) error {
-	_, err := p.doRequest(ctx, http.MethodGet, "/exchange/public/ping", "")
+	_, err := p.doRequest(ctx, http.MethodGet, "/exchange/public/ping", "", false)
 	return err
 }
 
@@ -66,7 +86,7 @@ func (p *PhemexClient) FetchContractBalance(ctx context.Context, currency string
 		path = path + "?" + query
 	}
 
-	body, err := p.doRequest(ctx, http.MethodGet, path, "")
+	body, err := p.doRequest(ctx, http.MethodGet, path, "", true)
 	if err != nil {
 		return nil, err
 	}
@@ -109,19 +129,30 @@ func (p *PhemexClient) FetchContractBalance(ctx context.Context, currency string
 	return balances, nil
 }
 
-func (p *PhemexClient) doRequest(ctx context.Context, method, path, body string) ([]byte, error) {
-	expires := time.Now().Add(60 * time.Second).Unix()
-	signaturePayload := path + strconv.FormatInt(expires, 10) + body
-	signature := p.sign(signaturePayload)
+func (p *PhemexClient) doRequest(ctx context.Context, method, path, body string, signed bool) ([]byte, error) {
+	var payload io.Reader
+	if body != "" {
+		payload = strings.NewReader(body)
+	}
 
-	req, err := http.NewRequestWithContext(ctx, method, p.baseURL+path, nil)
+	req, err := http.NewRequestWithContext(ctx, method, p.baseURL+path, payload)
 	if err != nil {
 		return nil, fmt.Errorf("build request: %w", err)
 	}
 
-	req.Header.Set("x-phemex-access-token", p.credentials.ApiKey)
-	req.Header.Set("x-phemex-request-signature", signature)
-	req.Header.Set("x-phemex-request-expiry", strconv.FormatInt(expires, 10))
+	if signed {
+		if p.credentials.ApiKey == "" || p.credentials.Secret == "" {
+			return nil, fmt.Errorf("missing API credentials for signed request")
+		}
+
+		expires := time.Now().Add(60 * time.Second).Unix()
+		signaturePayload := path + strconv.FormatInt(expires, 10) + body
+		signature := p.sign(signaturePayload)
+
+		req.Header.Set("x-phemex-access-token", p.credentials.ApiKey)
+		req.Header.Set("x-phemex-request-signature", signature)
+		req.Header.Set("x-phemex-request-expiry", strconv.FormatInt(expires, 10))
+	}
 
 	resp, err := p.httpClient.Do(req)
 	if err != nil {

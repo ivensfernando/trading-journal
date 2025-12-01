@@ -13,12 +13,17 @@ import (
 func main() {
 	apiKey := os.Getenv("PHEMEX_API_KEY")
 	secret := os.Getenv("PHEMEX_API_SECRET")
+	baseURL := os.Getenv("PHEMEX_BASE_URL")
 
 	if apiKey == "" || secret == "" {
 		log.Fatal("environment variables PHEMEX_API_KEY and PHEMEX_API_SECRET are required")
 	}
 
 	connector := connectors.NewPhemexConnector(apiKey, secret)
+	if baseURL != "" {
+		log.Printf("using custom Phemex base URL %s", baseURL)
+		connector = connectors.NewPhemexConnectorWithBaseURL(apiKey, secret, baseURL)
+	}
 
 	if err := connector.TestConnection(); err != nil {
 		log.Fatalf("failed to connect to Phemex: %v", err)

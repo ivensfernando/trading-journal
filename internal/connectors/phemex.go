@@ -16,14 +16,19 @@ type PhemexConnector struct {
 
 // NewPhemexConnector builds a connector configured with the provided credentials.
 func NewPhemexConnector(apiKey, secret string) *PhemexConnector {
+	return NewPhemexConnectorWithBaseURL(apiKey, secret, ccxt.DefaultPhemexBaseURL)
+}
+
+// NewPhemexConnectorWithBaseURL lets callers override the API host (e.g., testnet).
+func NewPhemexConnectorWithBaseURL(apiKey, secret, baseURL string) *PhemexConnector {
 	credentials := ccxt.PhemexCredentials{ApiKey: apiKey, Secret: secret}
-	return &PhemexConnector{client: ccxt.NewPhemexClient(credentials)}
+	return &PhemexConnector{client: ccxt.NewPhemexClientWithBaseURL(credentials, baseURL)}
 }
 
 // TestConnection checks connectivity against the public ping endpoint.
 func (p *PhemexConnector) TestConnection() error {
 	ctx := context.Background()
-	log.Printf("pinging Phemex API at %s", "https://api.phemex.com")
+	log.Printf("pinging Phemex API at %s", p.client.BaseURL())
 	return p.client.Ping(ctx)
 }
 
