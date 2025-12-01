@@ -12,6 +12,9 @@ func main() {
 	apiKey := os.Getenv("MEXC_API_KEY")
 	apiSecret := os.Getenv("MEXC_API_SECRET")
 
+	log.Println(apiKey)
+	log.Println(apiSecret)
+
 	if apiKey == "" || apiSecret == "" {
 		log.Fatal("environment variables MEXC_API_KEY and MEXC_API_SECRET are required")
 	}

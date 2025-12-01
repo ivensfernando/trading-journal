@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -45,6 +46,11 @@ func NewMexcFuturesClient(credentials MexcCredentials) *MexcClient {
 		baseURL:     mexcFuturesBaseURL,
 		httpClient:  &http.Client{Timeout: 15 * time.Second},
 	}
+}
+
+// BaseURL returns the host base URL configured for the client.
+func (m *MexcClient) BaseURL() string {
+	return m.baseURL
 }
 
 func (m *MexcClient) Ping(ctx context.Context) error {
@@ -177,9 +183,11 @@ func (m *MexcClient) doRequest(ctx context.Context, method, path string, body []
 		req.Header.Set("X-MEXC-APIKEY", m.credentials.ApiKey)
 	}
 
+	log.Printf("MEXC request: %s %s (signed=%v)", method, m.baseURL+path, signed)
+
 	resp, err := m.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
+		return nil, fmt.Errorf("request %s %s failed: %w", method, m.baseURL+path, err)
 	}
 	defer resp.Body.Close()
 

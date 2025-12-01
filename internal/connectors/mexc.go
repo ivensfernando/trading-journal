@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 
 	ccxt "github.com/ccxt/ccxt/go/v4"
 )
@@ -27,9 +28,13 @@ func NewMexcConnector(apiKey, secret string) *MexcConnector {
 func (m *MexcConnector) TestConnection() error {
 	ctx := context.Background()
 
+	log.Printf("pinging MEXC spot API at %s", m.spotClient.BaseURL())
+
 	if err := m.spotClient.Ping(ctx); err != nil {
 		return fmt.Errorf("spot ping failed: %w", err)
 	}
+
+	log.Printf("pinging MEXC futures API at %s", m.futuresClient.BaseURL())
 
 	if err := m.futuresClient.Ping(ctx); err != nil {
 		return fmt.Errorf("futures ping failed: %w", err)
