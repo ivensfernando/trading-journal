@@ -1,6 +1,6 @@
 include ./scripts/env.sh
 
-APP_NAME ?= trading-journal
+	APP_NAME ?= trading-journal
 BIN_DIR ?= bin
 BINARY_NAME ?= $(BIN_DIR)/$(APP_NAME)
 KUCOIN_BINARY ?= $(BIN_DIR)/kucoin-example
@@ -9,7 +9,7 @@ SWAGGER_FILE ?= ./docs/swagger.yaml
 SWAGGER_PORT ?= 8080
 SWAGGER_IMAGE ?= swaggerapi/swagger-ui
 
-.PHONY: help run run_server build build_server clean test test-modules test-handlers test-repositories swagger kucoin build_kucoin
+.PHONY: help run run_server build build_server clean test test-modules test-handlers test-repositories swagger kucoin mexc build_kucoin
 
 help: ## Show available commands
 	@echo "Usage: make <target>" && echo && echo "Available targets:" && \
@@ -19,6 +19,9 @@ help: ## Show available commands
 
 kucoin: ## Run the KuCoin balances example
 	go run ./cmd/kucoin/main.go
+
+mexc: ## Run the MEXC balances checker
+	go run ./cmd/mexc/main.go
 
 run_server: ## Run the HTTP server (main.go)
 	APP_NAME=$(APP_NAME) PORT=$(PORT) go run $(MAIN_PATH)
