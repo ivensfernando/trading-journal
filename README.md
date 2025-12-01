@@ -89,12 +89,27 @@ Run the full test suite:
 go test ./...
 ```
 
-## KuCoin SDK sample
-To run the KuCoin SDK example in `cmd/main.go`, set `KUCOIN_API_KEY`, `KUCOIN_API_SECRET`,
-and `KUCOIN_API_PASSPHRASE` (the plaintext passphrase you configured when creating the
-API key). Optionally set `KUCOIN_API_KEY_VERSION` for v2 keys or `KUCOIN_ENCRYPT_PASSPHRASE`
-to `false` if you already provide a pre-hashed passphrase. See [docs/kucoin.md](docs/kucoin.md)
-for troubleshooting `400004` (`Invalid KC-API-PASSPHRASE`) responses.
+## KuCoin example (ccxt)
+The repository bundles a minimal ccxt-based KuCoin connector under `internal/connectors/kucoin.go`
+and a runnable example at `cmd/kucoin/main.go`. Provide your KuCoin API credentials through the
+following environment variables:
+
+```
+export KUCOIN_API_KEY="<key>"
+export KUCOIN_API_SECRET="<secret>"
+export KUCOIN_API_PASSPHRASE="<passphrase>"
+```
+
+Then run the example to fetch spot and futures balances:
+
+```
+make kucoin
+# or
+go run ./cmd/kucoin/main.go
+```
+
+The output prefixes balances with `spot_` or `futures_` to indicate the account type. API access
+must be enabled for both spot and futures on your key for the request to succeed.
 
 ## Run the migration
 ```bash

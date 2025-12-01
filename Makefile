@@ -1,29 +1,33 @@
+include ./scripts/env.sh
+
 APP_NAME ?= trading-journal
 BIN_DIR ?= bin
 BINARY_NAME ?= $(BIN_DIR)/$(APP_NAME)
+KUCOIN_BINARY ?= $(BIN_DIR)/kucoin-example
 MAIN_PATH ?= ./main.go
 SWAGGER_FILE ?= ./docs/swagger.yaml
 SWAGGER_PORT ?= 8080
 SWAGGER_IMAGE ?= swaggerapi/swagger-ui
 
-.PHONY: help run run_server build build_server clean test test-modules test-handlers test-repositories swagger
+.PHONY: help run run_server build build_server clean test test-modules test-handlers test-repositories swagger kucoin build_kucoin
 
 help: ## Show available commands
 	@echo "Usage: make <target>" && echo && echo "Available targets:" && \
 	awk 'BEGIN {FS = ":.*##"} /^[a-zA-Z0-9_-]+:.*##/ {printf "  %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST) | sort
 
-run: ## Run the KuCoin example (cmd/kucoin/main.go)
-	go run ./cmd/kucoin/main.go
+#run: kucoin ## Backwards-compatible alias for the KuCoin example
 
-balances: ## Run the KuCoin example balances (cmd/kucoin/balances.go)
-	go run ./cmd/kucoin/balances.go
+kucoin: ## Run the KuCoin balances example
+	go run ./cmd/kucoin/main.go
 
 run_server: ## Run the HTTP server (main.go)
 	APP_NAME=$(APP_NAME) PORT=$(PORT) go run $(MAIN_PATH)
 
-build: ## Build the KuCoin example binary
+#build: build_kucoin ## Build the KuCoin example binary
+
+build_kucoin: ## Build the KuCoin example binary
 	mkdir -p $(BIN_DIR)
-	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o $(BINARY_NAME) ./cmd/main.go
+	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o $(KUCOIN_BINARY) ./cmd/kucoin/main.go
 
 build_server: ## Build the HTTP server binary
 	mkdir -p $(BIN_DIR)
