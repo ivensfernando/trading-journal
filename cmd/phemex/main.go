@@ -39,6 +39,123 @@ func printJSON(data any) {
 	fmt.Println(string(b))
 }
 
+func printPositions(pos *connectors.GAccountPositions) {
+	fmt.Printf("USDT Balance: %s\n", pos.Account.AccountBalanceRv)
+
+	found := false
+
+	for _, p := range pos.Positions {
+		if p.SizeRq == "" || p.SizeRq == "0" {
+			continue
+		}
+
+		found = true
+		fmt.Println("------ OPEN POSITION ------")
+		fmt.Printf("Symbol:     %s\n", p.Symbol)
+		fmt.Printf("PosSide:    %s\n", p.PosSide)
+		fmt.Printf("SizeRq:     %s\n", p.SizeRq)
+		fmt.Printf("AvgPrice:   %s\n", p.AvgEntryPriceRp)
+		fmt.Printf("Margin:     %s\n", p.PositionMarginRv)
+		fmt.Printf("MarkPrice:  %s\n", p.MarkPriceRp)
+		fmt.Println("---------------------------")
+	}
+
+	if !found {
+		fmt.Println("No open USDT-M positions.")
+	}
+}
+
+func printOrders(data json.RawMessage) {
+	var payload struct {
+		Rows    []map[string]interface{} `json:"rows"`
+		HasNext bool                     `json:"hasNext"`
+	}
+
+	if err := json.Unmarshal(data, &payload); err != nil {
+		fmt.Println("Error parsing orders:", err)
+		printJSON(data)
+		return
+	}
+
+	if len(payload.Rows) == 0 {
+		fmt.Println("No active orders.")
+		return
+	}
+
+	for i, row := range payload.Rows {
+		fmt.Printf("------ ORDER %d ------\n", i+1)
+		printMapField(row, "symbol", "Symbol")
+		printMapField(row, "side", "Side")
+		printMapField(row, "posSide", "PosSide")
+		printMapField(row, "ordType", "OrdType")
+		printMapField(row, "priceRp", "PriceRp")
+		printMapField(row, "orderQtyRq", "QtyRq")
+		printMapField(row, "reduceOnly", "ReduceOnly")
+		printMapField(row, "ordStatus", "Status")
+		printMapField(row, "clOrdID", "ClientID")
+		printMapField(row, "cumQtyRq", "FilledQty")
+		printMapField(row, "leavesQtyRq", "LeavesQty")
+		printMapField(row, "stopPxRp", "StopPx")
+		fmt.Println("---------------------")
+	}
+
+	if payload.HasNext {
+		fmt.Println("More orders available...")
+	}
+}
+
+func printOrderbook(data json.RawMessage) {
+	var payload struct {
+		Book struct {
+			Bids      [][]json.RawMessage `json:"bids"`
+			Asks      [][]json.RawMessage `json:"asks"`
+			Timestamp interface{}         `json:"timestamp"`
+		} `json:"book"`
+	}
+
+	if err := json.Unmarshal(data, &payload); err != nil {
+		fmt.Println("Error parsing orderbook:", err)
+		printJSON(data)
+		return
+	}
+
+	fmt.Println("------ ORDERBOOK ------")
+	if payload.Book.Timestamp != nil {
+		fmt.Printf("Timestamp: %v\n", payload.Book.Timestamp)
+	}
+
+	printLevels("Asks", payload.Book.Asks)
+	printLevels("Bids", payload.Book.Bids)
+	fmt.Println("-----------------------")
+}
+
+func printLevels(label string, levels [][]json.RawMessage) {
+	fmt.Printf("%s (top 5):\n", label)
+	if len(levels) == 0 {
+		fmt.Println("  none")
+		return
+	}
+
+	limit := 5
+	if len(levels) < limit {
+		limit = len(levels)
+	}
+
+	for i := 0; i < limit; i++ {
+		var parts []string
+		for _, raw := range levels[i] {
+			parts = append(parts, strings.Trim(string(raw), "\""))
+		}
+		fmt.Printf("  %d) %s\n", i+1, strings.Join(parts, " | "))
+	}
+}
+
+func printMapField(m map[string]interface{}, key, label string) {
+	if v, ok := m[key]; ok {
+		fmt.Printf("%-11s: %v\n", label, v)
+	}
+}
+
 func main() {
 	apiKey := os.Getenv("PHEMEX_API_KEY")
 	apiSecret := os.Getenv("PHEMEX_API_SECRET")
@@ -82,7 +199,7 @@ func main() {
 				fmt.Println("Error:", err)
 				continue
 			}
-			printJSON(pos)
+			printPositions(pos)
 
 		case "long":
 			if len(parts) < 3 {
@@ -194,7 +311,7 @@ func main() {
 				fmt.Println("Error:", err)
 				continue
 			}
-			printJSON(resp.Data)
+			printOrderbook(resp.Data)
 
 		case "orders":
 			if len(parts) < 2 {
@@ -207,7 +324,20 @@ func main() {
 				fmt.Println("Error:", err)
 				continue
 			}
-			printJSON(resp.Data)
+			printOrders(resp.Data)
+
+		case "ordershistory":
+			if len(parts) < 2 {
+				printUsage()
+				continue
+			}
+			symbol := parts[1]
+			resp, err := client.GetOrderHistory(symbol)
+			if err != nil {
+				fmt.Println("Error:", err)
+				continue
+			}
+			printOrders(resp.Data)
 
 		case "fills":
 			if len(parts) < 2 {

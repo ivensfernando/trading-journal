@@ -222,7 +222,8 @@ func (c *Client) GetActiveOrders(symbol string) (*APIResponse, error) {
 
 func (c *Client) GetOrderHistory(symbol string) (*APIResponse, error) {
 	logInfo("Fetching order history for %s", symbol)
-	return c.doRequest("GET", "/g-orders/history", fmt.Sprintf("symbol=%s", symbol), nil)
+	//return c.doRequest("GET", "/g-orders/history", fmt.Sprintf("symbol=%s", symbol), nil)
+	return c.doRequest("GET", "/g-orders/trade/history", fmt.Sprintf("symbol=%s", symbol), nil)
 }
 
 func (c *Client) GetFills(symbol string) (*APIResponse, error) {
