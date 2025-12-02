@@ -10,7 +10,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -50,7 +49,7 @@ func NewPhemexClient(credentials PhemexCredentials) *PhemexClient {
 // NewPhemexClientWithBaseURL builds a client that targets a custom base URL (e.g., testnet).
 func NewPhemexClientWithBaseURL(credentials PhemexCredentials, baseURL string) *PhemexClient {
 	if baseURL == "" {
-		baseURL = DefaultPhemexBaseURL
+		baseURL = TestnetPhemexBaseURL
 	}
 
 	return &PhemexClient{
@@ -67,7 +66,7 @@ func (p *PhemexClient) BaseURL() string {
 
 // Ping checks connectivity using the public ping endpoint.
 func (p *PhemexClient) Ping(ctx context.Context) error {
-	_, err := p.doRequest(ctx, http.MethodGet, "/exchange/public/ping", "", false)
+	_, err := p.doRequest(ctx, http.MethodGet, "/exchange/public/ping", "", true)
 	return err
 }
 
@@ -157,12 +156,12 @@ func (p *PhemexClient) doRequest(ctx context.Context, method, path, body string,
 
 		expires := time.Now().Add(60 * time.Second).Unix()
 		signaturePath := strings.Replace(path, "?", "", 1)
-		signaturePayload := signaturePath + strconv.FormatInt(expires, 10) + body
+		signaturePayload := signaturePath + fmt.Sprintf("%d", expires) + body
 		signature := p.sign(signaturePayload)
 
 		req.Header.Set("x-phemex-access-token", p.credentials.ApiKey)
 		req.Header.Set("x-phemex-request-signature", signature)
-		req.Header.Set("x-phemex-request-expiry", strconv.FormatInt(expires, 10))
+		req.Header.Set("x-phemex-request-expiry", fmt.Sprintf("%d", expires))
 	}
 
 	if body != "" || signed {

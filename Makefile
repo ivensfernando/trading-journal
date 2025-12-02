@@ -23,6 +23,9 @@ kucoin: ## Run the KuCoin balances example
 mexc: ## Run the MEXC balances checker
 	go run ./cmd/mexc/main.go
 
+phemex: ## Run the phemex balances checker
+	go run ./cmd/phemex/main.go
+
 run_server: ## Run the HTTP server (main.go)
 	APP_NAME=$(APP_NAME) PORT=$(PORT) go run $(MAIN_PATH)
 

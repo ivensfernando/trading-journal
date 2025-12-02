@@ -17,7 +17,7 @@ const (
 	apiSecret = "_Tmd_6WPf7oF5yUTSkq1WshVICDwrMJq78kvOQsZ98NmODhlOTA2Zi0yZTA1LTQ5YjMtYTAyOS02MDc2MmZlNWRlNDk"
 )
 
-func main() {
+func mainw() {
 	// 1. Conectar ao WebSocket
 	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
 	if err != nil {
