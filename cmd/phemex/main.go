@@ -40,11 +40,8 @@ func printJSON(data any) {
 }
 
 func main() {
-	//	apiKey := os.Getenv("PHEMEX_API_KEY")
-	//	apiSecret := os.Getenv("PHEMEX_API_SECRET")
-
-	apiKey := "b9eb2ef0-0a6d-43de-9cee-aeb783d14fff"
-	apiSecret := "_Tmd_6WPf7oF5yUTSkq1WshVICDwrMJq78kvOQsZshut98NmODhlOTA2Zi0yZTA1LTQ5YjMtYTAyOS02MDc2MmZlNWRlNDk"
+	apiKey := os.Getenv("PHEMEX_API_KEY")
+	apiSecret := os.Getenv("PHEMEX_API_SECRET")
 
 	if apiKey == "" || apiSecret == "" {
 		log.Fatal("Missing API keys")
