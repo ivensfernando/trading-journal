@@ -4,12 +4,26 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"log"
+	logger "github.com/sirupsen/logrus"
 	"os"
 	"strconv"
 	"strings"
-	"vsC1Y2025V01/internal/connectors"
+	"vsC1Y2025V01/src/connectors"
 )
+
+func SetupLogger() {
+	levelStr := strings.ToLower(os.Getenv("LOG_LEVEL"))
+
+	level, err := logger.ParseLevel(levelStr)
+	if err != nil {
+		level = logger.DebugLevel // fallback seguro
+	}
+
+	logger.SetLevel(level)
+	logger.SetFormatter(&logger.TextFormatter{
+		FullTimestamp: true,
+	})
+}
 
 func printUsage() {
 	fmt.Println("Available commands:")
@@ -22,6 +36,7 @@ func printUsage() {
 	fmt.Println("  close-short SYMBOL QTY           Close SHORT")
 	fmt.Println("  reverse SYMBOL QTY               Reverse position")
 	fmt.Println("  cancel-all SYMBOL                Cancel all orders")
+	fmt.Println("  cancel-all-positions SYMBOL      Cancel all positions for a symbol (including open orders)")
 	fmt.Println("  ticker SYMBOL                    Show ticker info")
 	fmt.Println("  orderbook SYMBOL                 Show orderbook")
 	fmt.Println("  orders SYMBOL                    Show active orders")
@@ -106,11 +121,17 @@ func printOrders(data json.RawMessage) {
 
 func printOrderbook(data json.RawMessage) {
 	var payload struct {
-		Book struct {
-			Bids      [][]json.RawMessage `json:"bids"`
-			Asks      [][]json.RawMessage `json:"asks"`
-			Timestamp interface{}         `json:"timestamp"`
-		} `json:"book"`
+		Depth      int    `json:"depth"`
+		Dts        int64  `json:"dts"`
+		Mts        int64  `json:"mts"`
+		Timestamp  int64  `json:"timestamp"`
+		Sequence   int64  `json:"sequence"`
+		Symbol     string `json:"symbol"`
+		Type       string `json:"type"`
+		OrderbookP struct {
+			Asks [][]string `json:"asks"`
+			Bids [][]string `json:"bids"`
+		} `json:"orderbook_p"`
 	}
 
 	if err := json.Unmarshal(data, &payload); err != nil {
@@ -120,12 +141,19 @@ func printOrderbook(data json.RawMessage) {
 	}
 
 	fmt.Println("------ ORDERBOOK ------")
-	if payload.Book.Timestamp != nil {
-		fmt.Printf("Timestamp: %v\n", payload.Book.Timestamp)
+	fmt.Printf("Symbol: %s\n", payload.Symbol)
+	fmt.Printf("Timestamp: %d\n", payload.Timestamp)
+
+	fmt.Println("Asks:")
+	for _, lvl := range payload.OrderbookP.Asks {
+		fmt.Printf("  Price: %s  Qty: %s\n", lvl[0], lvl[1])
 	}
 
-	printLevels("Asks", payload.Book.Asks)
-	printLevels("Bids", payload.Book.Bids)
+	fmt.Println("Bids:")
+	for _, lvl := range payload.OrderbookP.Bids {
+		fmt.Printf("  Price: %s  Qty: %s\n", lvl[0], lvl[1])
+	}
+
 	fmt.Println("-----------------------")
 }
 
@@ -157,14 +185,17 @@ func printMapField(m map[string]interface{}, key, label string) {
 }
 
 func main() {
+
+	SetupLogger()
 	apiKey := os.Getenv("PHEMEX_API_KEY")
 	apiSecret := os.Getenv("PHEMEX_API_SECRET")
+	baseURL := os.Getenv("PHEMEX_BASE_URL")
 
 	if apiKey == "" || apiSecret == "" {
-		log.Fatal("Missing API keys")
+		logger.Fatal("Missing API keys")
 	}
 
-	client := connectors.NewClient(apiKey, apiSecret)
+	client := connectors.NewClient(apiKey, apiSecret, baseURL)
 
 	reader := bufio.NewScanner(os.Stdin)
 	fmt.Println("Phemex CLI Ready. Type 'help' for a list of commands. Type 'shutdown' to exit.")
@@ -287,6 +318,24 @@ func main() {
 			}
 			printJSON(resp.Data)
 
+		case "cancel-all-positions":
+			if len(parts) < 2 {
+				printUsage()
+				continue
+			}
+			symbol := parts[1]
+			err := client.CloseAllPositions(symbol)
+			if err != nil {
+				fmt.Println("Error:", err)
+				continue
+			}
+			pos, err := client.GetPositionsUSDT()
+			if err != nil {
+				fmt.Println("Error:", err)
+				continue
+			}
+			printPositions(pos)
+
 		case "ticker":
 			if len(parts) < 2 {
 				printUsage()
@@ -365,6 +414,39 @@ func main() {
 				continue
 			}
 			printJSON(resp.Data)
+
+		case "disp":
+			if len(parts) < 2 {
+				printUsage()
+				continue
+			}
+			symbol := parts[1]
+
+			qtd, err := client.GetFuturesAvailableFromRiskUnit(symbol)
+			if err != nil {
+				fmt.Println("Error:", err)
+				continue
+			}
+
+			fmt.Printf("USDT available %.12f\n", qtd)
+
+		case "avl":
+			if len(parts) < 2 {
+				printUsage()
+				continue
+			}
+			symbol := parts[1]
+
+			baseSymbol, baseAvail, usdtAvail, price, err := client.GetAvailableBaseFromUSDT(symbol)
+			if err != nil {
+				fmt.Println("Error:", err)
+				continue
+			}
+
+			fmt.Printf("Available %s\n", baseSymbol)
+			fmt.Printf("USDT USDT -> base coin %.12f\n", baseAvail)
+			fmt.Printf("USDT available %.12f\n", usdtAvail)
+			fmt.Printf("USDT price %.12f\n", price)
 
 		default:
 			fmt.Println("Unknown command:", cmd)

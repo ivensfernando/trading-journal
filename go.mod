@@ -1,17 +1,17 @@
 module vsC1Y2025V01
 
-go 1.23
+go 1.23.0
 
 toolchain go1.23.9
 
 require (
-	github.com/ccxt/ccxt/go/v4 v4.0.0
 	github.com/go-chi/chi/v5 v5.2.1
 	github.com/go-chi/cors v1.2.1
+	github.com/go-resty/resty/v2 v2.17.0
 	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/gorilla/websocket v1.5.3
 	github.com/sirupsen/logrus v1.9.3
-	golang.org/x/crypto v0.17.0
+	golang.org/x/crypto v0.41.0
 	gorm.io/driver/postgres v1.5.11
 	gorm.io/gorm v1.26.1
 )
@@ -24,9 +24,10 @@ require (
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/stretchr/testify v1.8.2 // indirect
-	golang.org/x/sync v0.9.0 // indirect
-	golang.org/x/sys v0.29.0 // indirect
-	golang.org/x/text v0.20.0 // indirect
+	golang.org/x/net v0.43.0 // indirect
+	golang.org/x/sync v0.16.0 // indirect
+	golang.org/x/sys v0.35.0 // indirect
+	golang.org/x/text v0.28.0 // indirect
 )
 
 replace github.com/ccxt/ccxt/go/v4 => ./internal/third_party/ccxt/go/v4

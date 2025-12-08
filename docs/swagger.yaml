@@ -1076,6 +1076,221 @@ components:
         received_at:
           type: string
           format: date-time
+    Strategy:
+      type: object
+      properties:
+        id:
+          type: integer
+        user_id:
+          type: integer
+        webhook_id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        active:
+          type: boolean
+        apply_on_alert:
+          type: boolean
+          description: Execute the strategy automatically when a webhook alert is received.
+        dry_run:
+          type: boolean
+          description: If true, orders are built but not dispatched to an exchange.
+        alert_filters:
+          type: object
+          additionalProperties: true
+        max_concurrent:
+          type: integer
+        close_previous:
+          type: boolean
+          description: Close an existing position when opening a new one.
+        allow_hedge:
+          type: boolean
+          description: Allow opening hedge positions instead of closing the previous one.
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        last_executed_at:
+          type: string
+          format: date-time
+          nullable: true
+        actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/StrategyAction'
+    StrategyAction:
+      type: object
+      properties:
+        id:
+          type: integer
+        strategy_id:
+          type: integer
+        exchange_id:
+          type: integer
+        user_exchange_id:
+          type: integer
+          nullable: true
+        name:
+          type: string
+        action_type:
+          type: string
+        order_type:
+          type: string
+        market_type:
+          type: string
+          description: Market segment such as spot, margin, or futures.
+        symbol:
+          type: string
+        quantity:
+          type: number
+          format: float
+        price:
+          type: number
+          format: float
+          nullable: true
+        use_last_price:
+          type: boolean
+        slippage:
+          type: number
+          format: float
+          nullable: true
+        max_quantity:
+          type: number
+          format: float
+          description: Maximum quantity allowed after risk caps are applied.
+        stop_loss_pct:
+          type: number
+          format: float
+        take_profit_pct:
+          type: number
+          format: float
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    Order:
+      type: object
+      properties:
+        id:
+          type: integer
+        strategy_action_id:
+          type: integer
+        strategy_id:
+          type: integer
+        user_id:
+          type: integer
+        exchange_id:
+          type: integer
+        external_id:
+          type: string
+        symbol:
+          type: string
+        side:
+          type: string
+        order_type:
+          type: string
+        quantity:
+          type: number
+          format: float
+        price:
+          type: number
+          format: float
+          nullable: true
+        stop_loss_pct:
+          type: number
+          format: float
+        take_profit_pct:
+          type: number
+          format: float
+        status:
+          type: string
+        triggered_by_alert_id:
+          type: integer
+          nullable: true
+        executed_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    Position:
+      type: object
+      properties:
+        id:
+          type: integer
+        user_id:
+          type: integer
+        exchange_id:
+          type: integer
+        symbol:
+          type: string
+        side:
+          type: string
+        quantity:
+          type: number
+          format: float
+        entry_price:
+          type: number
+          format: float
+        exit_price:
+          type: number
+          format: float
+          nullable: true
+        opened_at:
+          type: string
+          format: date-time
+        closed_at:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          type: string
+        order_id:
+          type: integer
+          nullable: true
+        strategy_id:
+          type: integer
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    TransactionLog:
+      type: object
+      properties:
+        id:
+          type: integer
+        strategy_id:
+          type: integer
+          nullable: true
+        strategy_action_id:
+          type: integer
+          nullable: true
+        order_id:
+          type: integer
+          nullable: true
+        level:
+          type: string
+        message:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+        created_at:
+          type: string
+          format: date-time
     Exchange:
       type: object
       properties:
