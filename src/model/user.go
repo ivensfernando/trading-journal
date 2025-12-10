@@ -17,5 +17,5 @@ type User struct {
 	LastSeen    time.Time `json:"last_seen"`
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
-	Trades      []Trade `gorm:"foreignKey:UserID"` // One-to-many
+	//Trades      []Trade `gorm:"foreignKey:UserID"` // One-to-many
 }

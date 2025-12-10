@@ -6,6 +6,7 @@ import (
 	"fmt"
 	logger "github.com/sirupsen/logrus"
 	"os"
+	"strconv"
 	"strings"
 
 	"vsC1Y2025V01/src/connectors"
@@ -35,6 +36,10 @@ func printUsage() {
 	fmt.Println("  close-long SYMBOL QTY            Close LONG")
 	fmt.Println("  close-short SYMBOL QTY           Close SHORT")
 	fmt.Println("  reverse SYMBOL QTY               Reverse position")
+	fmt.Println("  long-usdt SYMBOL USDT LEV        Long using USDT amount and leverage")
+	fmt.Println("  short-usdt SYMBOL USDT LEV       Short using USDT amount and leverage")
+	fmt.Println("  leverage SYMBOL N                Set leverage for symbol")
+	fmt.Println("  convert SYMBOL USDT LEV          Convert USDT to contract size")
 	fmt.Println("  cancel-all SYMBOL                Cancel all orders")
 	fmt.Println("  cancel-all-positions SYMBOL      Cancel all positions for a symbol (including open orders)")
 	fmt.Println("  ticker SYMBOL                    Show ticker info")
@@ -218,6 +223,8 @@ func main() {
 	client := connectors.NewKucoinConnector(apiKey, apiSecret, apiPassphrase, keyVersion)
 
 	reader := bufio.NewScanner(os.Stdin)
+	// Increase the buffer so Ctrl+V pastes (especially long commands) are accepted without truncation.
+	reader.Buffer(make([]byte, 0, 1024), 1024*1024)
 	fmt.Println("Kucoin CLI Ready. Type 'help' for a list of commands. Type 'shutdown' to exit.")
 	//price, err := strconv.ParseFloat("90", 64)
 	for {
@@ -245,122 +252,208 @@ func main() {
 			printUsage()
 
 		case "positions":
-			//pos, err := client.GetAccountBalances()
-			//if err != nil {
-			//	fmt.Println("Error:", err)
-			//	continue
-			//}
-			//printJSON(pos)
+			balances, err := client.GetAccountBalances()
+			if err != nil {
+				fmt.Println("Error:", err)
+				continue
+			}
+			printJSON(balances)
 
 		case "long":
-			//if len(parts) < 3 {
-			//	printUsage()
-			//	continue
-			//}
-			//symbol, qty := parts[1], parts[2]
-			//fmt.Printf("Executing LONG %s qty=%s\n", symbol, qty)
-			//
-			//if err != nil {
-			//	//return "", fmt.Errorf("invalid qty %q: %w", qty, err)
-			//}
-			//
-			//resp, err := client.ExecuteFuturesOrder(symbol, "Buy", "Long", "Market", qty, false, &price)
-			//if err != nil {
-			//	fmt.Println("Error:", err)
-			//	continue
-			//}
-			//printJSON(resp)
-			//fmt.Printf("Symbol:     %s\n", resp)
+			if len(parts) < 3 {
+				printUsage()
+				continue
+			}
+			symbol, qtyStr := parts[1], parts[2]
+			size, err := strconv.ParseInt(qtyStr, 10, 64)
+			if err != nil {
+				fmt.Printf("Invalid size %q: %v\n", qtyStr, err)
+				continue
+			}
+
+			fmt.Printf("Executing LONG %s size=%d\n", symbol, size)
+			resp, err := client.ExecuteFuturesOrder(symbol, "buy", "market", size, nil, "1", false)
+			if err != nil {
+				fmt.Println("Error:", err)
+				continue
+			}
+			printJSON(resp)
 
 		case "short":
-			//if len(parts) < 3 {
-			//	printUsage()
-			//	continue
-			//}
-			//symbol, qty := parts[1], parts[2]
-			//fmt.Printf("Executing SHORT %s qty=%s\n", symbol, qty)
-			//resp, err := client.ExecuteFuturesOrder(symbol, "Sell", "Short", "Market", qty, false, &price)
-			//if err != nil {
-			//	fmt.Println("Error:", err)
-			//	continue
-			//}
-			//fmt.Printf("Symbol:     %s\n", resp)
+			if len(parts) < 3 {
+				printUsage()
+				continue
+			}
+			symbol, qtyStr := parts[1], parts[2]
+			size, err := strconv.ParseInt(qtyStr, 10, 64)
+			if err != nil {
+				fmt.Printf("Invalid size %q: %v\n", qtyStr, err)
+				continue
+			}
+
+			fmt.Printf("Executing SHORT %s size=%d\n", symbol, size)
+			resp, err := client.ExecuteFuturesOrder(symbol, "sell", "market", size, nil, "1", false)
+			if err != nil {
+				fmt.Println("Error:", err)
+				continue
+			}
+			printJSON(resp)
 
 		case "close-long":
-			//if len(parts) < 3 {
-			//	printUsage()
-			//	continue
-			//}
-			//symbol, qty := parts[1], parts[2]
-			//fmt.Printf("Closing LONG %s qty=%s\n", symbol, qty)
-			//resp, err := client.PlaceOrder(symbol, "Sell", "Long", qty, "Market", true)
-			//if err != nil {
-			//	fmt.Println("Error:", err)
-			//	continue
-			//}
-			//printJSON(resp.Data)
+			if len(parts) < 3 {
+				printUsage()
+				continue
+			}
+			symbol, qtyStr := parts[1], parts[2]
+			size, err := strconv.ParseInt(qtyStr, 10, 64)
+			if err != nil {
+				fmt.Printf("Invalid size %q: %v\n", qtyStr, err)
+				continue
+			}
+
+			fmt.Printf("Closing LONG %s size=%d\n", symbol, size)
+			resp, err := client.ExecuteFuturesOrder(symbol, "sell", "market", size, nil, "1", true)
+			if err != nil {
+				fmt.Println("Error:", err)
+				continue
+			}
+			printJSON(resp)
 
 		case "close-short":
-			//if len(parts) < 3 {
-			//	printUsage()
-			//	continue
-			//}
-			//symbol, qty := parts[1], parts[2]
-			//fmt.Printf("Closing SHORT %s qty=%s\n", symbol, qty)
-			//resp, err := client.PlaceOrder(symbol, "Buy", "Short", qty, "Market", true)
-			//if err != nil {
-			//	fmt.Println("Error:", err)
-			//	continue
-			//}
-			//printJSON(resp.Data)
+			if len(parts) < 3 {
+				printUsage()
+				continue
+			}
+			symbol, qtyStr := parts[1], parts[2]
+			size, err := strconv.ParseInt(qtyStr, 10, 64)
+			if err != nil {
+				fmt.Printf("Invalid size %q: %v\n", qtyStr, err)
+				continue
+			}
+
+			fmt.Printf("Closing SHORT %s size=%d\n", symbol, size)
+			resp, err := client.ExecuteFuturesOrder(symbol, "buy", "market", size, nil, "1", true)
+			if err != nil {
+				fmt.Println("Error:", err)
+				continue
+			}
+			printJSON(resp)
 
 		case "reverse":
-			//if len(parts) < 3 {
-			//	printUsage()
-			//	continue
-			//}
-			//symbol, qty := parts[1], parts[2]
-			//fmt.Printf("Reversing %s qty=%s\n", symbol, qty)
-			//
-			//client.PlaceOrder(symbol, "Sell", "Long", qty, "Market", true)
-			//resp, err := client.PlaceOrder(symbol, "Sell", "Short", qty, "Market", false)
-			//
-			//if err != nil {
-			//	fmt.Println("Error:", err)
-			//	continue
-			//}
-			//printJSON(resp.Data)
+			if len(parts) < 3 {
+				printUsage()
+				continue
+			}
+			symbol, qtyStr := parts[1], parts[2]
+			size, err := strconv.ParseInt(qtyStr, 10, 64)
+			if err != nil {
+				fmt.Printf("Invalid size %q: %v\n", qtyStr, err)
+				continue
+			}
+
+			fmt.Printf("Reversing position on %s with size=%d\n", symbol, size)
+			if _, err := client.ExecuteFuturesOrder(symbol, "sell", "market", size, nil, "1", true); err != nil {
+				fmt.Println("Error closing existing position:", err)
+				continue
+			}
+			resp, err := client.ExecuteFuturesOrder(symbol, "sell", "market", size, nil, "1", false)
+			if err != nil {
+				fmt.Println("Error opening reverse position:", err)
+				continue
+			}
+			printJSON(resp)
+
+		case "long-usdt", "short-usdt":
+			if len(parts) < 4 {
+				printUsage()
+				continue
+			}
+			symbol := parts[1]
+			usdt, err := strconv.ParseFloat(parts[2], 64)
+			if err != nil || usdt <= 0 {
+				fmt.Printf("Invalid USDT amount %q: %v\n", parts[2], err)
+				continue
+			}
+			lev, err := strconv.Atoi(parts[3])
+			if err != nil || lev <= 0 {
+				fmt.Printf("Invalid leverage %q: %v\n", parts[3], err)
+				continue
+			}
+
+			size, used, err := client.ConvertUSDTToContracts(symbol, usdt, lev)
+			if err != nil {
+				fmt.Println("Conversion error:", err)
+				continue
+			}
+
+			fmt.Printf("Using %.4f USDT at %dx leverage gives %d contracts.\n", used, lev, size)
+			if size == 0 {
+				fmt.Println("Computed size is zero, aborting order.")
+				continue
+			}
+
+			side := "buy"
+			if cmd == "short-usdt" {
+				side = "sell"
+			}
+
+			resp, err := client.ExecuteFuturesOrderLeverage(symbol, side, "market", size, nil, lev, false)
+			if err != nil {
+				fmt.Println("Error placing leveraged order:", err)
+				continue
+			}
+
+			printJSON(resp)
+
+		case "leverage":
+			if len(parts) < 3 {
+				printUsage()
+				continue
+			}
+			symbol := parts[1]
+			lev, err := strconv.Atoi(parts[2])
+			if err != nil || lev <= 0 {
+				fmt.Printf("Invalid leverage %q: %v\n", parts[2], err)
+				continue
+			}
+
+			if err := client.SetFuturesLeverage(symbol, lev); err != nil {
+				fmt.Println("Error setting leverage:", err)
+				continue
+			}
+
+			fmt.Printf("Leverage for %s set to %dx.\n", symbol, lev)
+
+		case "convert":
+			if len(parts) < 4 {
+				printUsage()
+				continue
+			}
+			symbol := parts[1]
+			usdt, err := strconv.ParseFloat(parts[2], 64)
+			if err != nil || usdt <= 0 {
+				fmt.Printf("Invalid USDT amount %q: %v\n", parts[2], err)
+				continue
+			}
+			lev, err := strconv.Atoi(parts[3])
+			if err != nil || lev <= 0 {
+				fmt.Printf("Invalid leverage %q: %v\n", parts[3], err)
+				continue
+			}
+
+			size, used, err := client.ConvertUSDTToContracts(symbol, usdt, lev)
+			if err != nil {
+				fmt.Println("Error converting:", err)
+				continue
+			}
+
+			fmt.Printf("%s => contracts: %d (using %.6f USDT at %dx)\n", symbol, size, used, lev)
 
 		case "cancel-all":
-			//if len(parts) < 2 {
-			//	printUsage()
-			//	continue
-			//}
-			//symbol := parts[1]
-			//resp, err := client.CancelAll(symbol)
-			//if err != nil {
-			//	fmt.Println("Error:", err)
-			//	continue
-			//}
-			//printJSON(resp.Data)
+			fmt.Println("Cancel-all is not supported by the KuCoin connector yet.")
 
 		case "cancel-all-positions":
-			//if len(parts) < 2 {
-			//	printUsage()
-			//	continue
-			//}
-			//symbol := parts[1]
-			//err := client.CloseAllPositions(symbol)
-			//if err != nil {
-			//	fmt.Println("Error:", err)
-			//	continue
-			//}
-			//pos, err := client.GetPositionsUSDT()
-			//if err != nil {
-			//	fmt.Println("Error:", err)
-			//	continue
-			//}
-			//printPositions(pos)
+			fmt.Println("Cancel-all-positions is not supported by the KuCoin connector yet.")
 
 		case "ticker":
 			if len(parts) < 2 {
@@ -457,19 +550,17 @@ func main() {
 			//printJSON(resp.Data)
 
 		case "disp":
-			//if len(parts) < 2 {
-			//	printUsage()
-			//	continue
-			//}
-			//symbol := parts[1]
-			//
-			//qtd, err := client.GetFuturesAvailableFromRiskUnit(symbol)
-			//if err != nil {
-			//	fmt.Println("Error:", err)
-			//	continue
-			//}
-			//
-			//fmt.Printf("USDT available %.12f\n", qtd)
+			if len(parts) < 2 {
+				printUsage()
+				continue
+			}
+			symbol := parts[1]
+			avail, err := client.GetFuturesAvailableForSymbol(symbol)
+			if err != nil {
+				fmt.Println("Error:", err)
+				continue
+			}
+			fmt.Printf("USDT available for %s: %.12f\n", symbol, avail)
 
 		case "avl":
 
